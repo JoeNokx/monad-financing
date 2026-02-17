@@ -1,0 +1,304 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum KYCVerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LoanStatus {
+  ACTIVE
+  COMPLETED
+  DEFAULTED
+  CANCELLED
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum LedgerDirection {
+  DEBIT
+  CREDIT
+}
+
+enum LedgerEntryType {
+  LOAN_DISBURSEMENT
+  REPAYMENT
+  PENALTY
+  INTEREST
+  FEE
+}
+
+model User {
+  id          String   @id @default(uuid())
+  clerkId     String   @unique
+  email       String   @unique
+  phone       String   @unique
+  fullName    String?
+  isBlocked   Boolean  @default(false)
+  creditScore Int      @default(0)
+  maxPersonalLoans     Int     @default(2)
+  currentPersonalLoans Int     @default(0)
+  maxBusinessLoans     Int     @default(1)
+  currentBusinessLoans Int     @default(0)
+  loanLimit            Decimal @default(1000)
+  originalLoanLimit    Decimal @default(1000)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  loans         Loan[]
+  ledgerEntries LedgerEntry[]
+  kyc           KYCVerification?
+  pin           UserPin?
+  roles         UserRole[]
+  transactions  Transaction[]
+  notifications Notification[]
+  loanGrowthHistory LoanGrowthHistory[]
+
+  @@index([clerkId])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model Role {
+  id    String @id @default(uuid())
+  name  String @unique
+  users UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id     String @id @default(uuid())
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id])
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model KYCVerification {
+  id                 String                @id @default(uuid())
+  userId             String                @unique
+  idType             String
+  idNumber           String
+  idImageUrl         String
+  selfieUrl          String
+  verificationStatus KYCVerificationStatus @default(PENDING)
+  smileReference     String?
+  createdAt          DateTime              @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([verificationStatus])
+  @@index([createdAt])
+  @@map("kyc_verifications")
+}
+
+model Loan {
+  id       String @id @default(uuid())
+  userId   String
+  loanType String
+
+  duration         Int?
+  gracePeriodDays  Int?      @default(3)
+  gracePeriodEnd   DateTime?
+  penaltyPerDay    Decimal?
+  maxPenalty       Decimal?
+  currentPenalty   Decimal   @default(0)
+
+  repaymentFrequency String?
+  totalInstallments  Int?
+  paidInstallments   Int      @default(0)
+
+  originalAmount   Decimal
+  interestAmount   Decimal
+  totalRepayment   Decimal
+  amountPaid       Decimal   @default(0)
+  remainingBalance Decimal
+  status           LoanStatus
+  dueDate          DateTime
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+
+  user           User              @relation(fields: [userId], references: [id])
+  installments   LoanInstallment[]
+  transactions   Transaction[]
+  ledgerEntries  LedgerEntry[]
+  penaltyHistory PenaltyHistory[]
+  loanGrowthHistory LoanGrowthHistory[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([loanType])
+  @@index([createdAt])
+  @@map("loans")
+}
+
+model LoanGrowthHistory {
+  id            String   @id @default(uuid())
+  userId        String
+  previousLimit Decimal
+  newLimit      Decimal
+  reason        String
+  loanId        String?
+  createdAt     DateTime @default(now())
+
+  user User  @relation(fields: [userId], references: [id])
+  loan Loan? @relation(fields: [loanId], references: [id])
+
+  @@index([userId])
+  @@index([loanId])
+  @@index([createdAt])
+  @@map("loan_growth_history")
+}
+
+model PenaltyHistory {
+  id        String   @id @default(uuid())
+  loanId    String
+  amount    Decimal
+  dayNumber Int
+  createdAt DateTime @default(now())
+
+  loan Loan @relation(fields: [loanId], references: [id])
+
+  @@index([loanId])
+  @@index([createdAt])
+  @@map("penalty_history")
+}
+
+model LoanInstallment {
+  id     String   @id @default(uuid())
+  loanId String
+  amount Decimal
+  dueDate DateTime
+  isPaid Boolean  @default(false)
+  paidAt DateTime?
+
+  loan Loan @relation(fields: [loanId], references: [id])
+
+  @@index([loanId])
+  @@index([dueDate])
+  @@index([isPaid])
+  @@map("loan_installments")
+}
+
+model LedgerEntry {
+  id        String          @id @default(uuid())
+  userId    String
+  loanId    String?
+  type      LedgerEntryType
+  amount    Decimal
+  direction LedgerDirection
+  reference String
+  createdAt DateTime        @default(now())
+
+  user User  @relation(fields: [userId], references: [id])
+  loan Loan? @relation(fields: [loanId], references: [id])
+
+  @@index([userId])
+  @@index([loanId])
+  @@index([type])
+  @@index([direction])
+  @@index([reference])
+  @@index([createdAt])
+  @@map("ledger_entries")
+}
+
+model Transaction {
+  id          String            @id @default(uuid())
+  loanId      String?
+  userId      String
+  paystackRef String?
+  amount      Decimal
+  status      TransactionStatus
+  createdAt   DateTime          @default(now())
+
+  user User  @relation(fields: [userId], references: [id])
+  loan Loan? @relation(fields: [loanId], references: [id])
+
+  @@index([userId])
+  @@index([loanId])
+  @@index([paystackRef])
+  @@index([status])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+model UserPin {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  hashedPin String
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("user_pins")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  adminId   String?
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([adminId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model FailedPinAttempt {
+  id        String   @id @default(uuid())
+  userId    String
+  ipAddress String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([ipAddress])
+  @@index([createdAt])
+  @@map("failed_pin_attempts")
+}
