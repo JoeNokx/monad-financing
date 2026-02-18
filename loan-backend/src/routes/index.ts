@@ -1,5 +1,7 @@
 import { Router } from 'express';
 
+import prisma from '../config/database';
+import { env } from '../config/env';
 import usersRoutes from '../modules/users/routes';
 import authRoutes from '../modules/auth/routes';
 import kycRoutes from '../modules/kyc/routes';
@@ -14,8 +16,17 @@ import businessLoanRoutes from '../modules/business-loan/business-loan.routes';
 
 const router = Router();
 
-router.get('/health', (_req, res) => {
-  res.status(200).json({ success: true, status: 'ok' });
+router.get('/health', async (_req, res) => {
+  try {
+    if (env.NODE_ENV === 'test') {
+      res.status(200).json({ success: true, status: 'ok', db: 'skipped' });
+      return;
+    }
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({ success: true, status: 'ok', db: 'ok' });
+  } catch {
+    res.status(503).json({ success: false, status: 'degraded', db: 'unavailable' });
+  }
 });
 
 router.use('/users', usersRoutes);

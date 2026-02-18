@@ -8,7 +8,11 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "healthcheck:db": "ts-node src/scripts/healthcheck-db.ts",
+    "healthcheck:http": "ts-node src/scripts/healthcheck-http.ts",
+    "healthcheck": "npm run healthcheck:db && npm run healthcheck:http",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
@@ -38,6 +42,9 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^25.2.3",
-    "prisma": "6.16.0"
+    "@types/supertest": "^6.0.3",
+    "prisma": "6.16.0",
+    "supertest": "^7.1.4",
+    "vitest": "^3.2.4"
   }
 }

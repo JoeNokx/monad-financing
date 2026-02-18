@@ -3,6 +3,7 @@ import { clerkClient, getAuth } from '@clerk/express';
 
 import prisma from '../config/database';
 import ApiError from '../common/errors/ApiError';
+import logger from '../common/logger/logger';
 import { ROLES } from '../constants/roles';
 
 const authenticate: RequestHandler = async (req, _res, next) => {
@@ -11,6 +12,17 @@ const authenticate: RequestHandler = async (req, _res, next) => {
     req.auth = auth;
 
     if (!auth?.userId) {
+      const authorization = req.headers.authorization;
+      const scheme = authorization ? authorization.split(' ')[0] : undefined;
+      logger.warn('Clerk auth missing userId', {
+        hasAuth: Boolean(auth),
+        sessionId: (auth as any)?.sessionId,
+        userId: (auth as any)?.userId,
+        tokenType: (auth as any)?.tokenType,
+        hasAuthorizationHeader: Boolean(authorization),
+        authorizationScheme: scheme,
+        authorizationLength: authorization?.length,
+      });
       return next(
         new ApiError('Unauthorized', {
           statusCode: 401,

@@ -8,6 +8,7 @@ export const env = {
   DATABASE_URL: process.env.DATABASE_URL,
   CLERK_PUBLISHABLE_KEY: process.env.CLERK_PUBLISHABLE_KEY,
   CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
+  CLERK_AUTHORIZED_PARTIES: process.env.CLERK_AUTHORIZED_PARTIES,
   PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,
   PAYSTACK_BASE_URL: process.env.PAYSTACK_BASE_URL ?? 'https://api.paystack.co',
 } as const;

@@ -5,6 +5,8 @@ import { clerkMiddleware } from '@clerk/express';
 
 import ApiError from './common/errors/ApiError';
 import errorHandler from './common/errors/errorHandler';
+import { clerkConfig } from './config/clerk';
+import { env } from './config/env';
 import apiRateLimit from './middleware/rateLimit';
 import requestLogger from './middleware/requestLogger';
 import routes from './routes';
@@ -34,7 +36,20 @@ app.use(express.urlencoded({ extended: true }));
 app.use(apiRateLimit);
 app.use(requestLogger);
 
-app.use(clerkMiddleware());
+if (env.NODE_ENV !== 'test') {
+  const authorizedParties = env.CLERK_AUTHORIZED_PARTIES?.split(',').map((s) => s.trim()).filter(Boolean);
+
+  const clerkOptions: any = {
+    publishableKey: clerkConfig.publishableKey,
+    secretKey: clerkConfig.secretKey,
+  };
+
+  if (authorizedParties && authorizedParties.length > 0) {
+    clerkOptions.authorizedParties = authorizedParties;
+  }
+
+  app.use(clerkMiddleware(clerkOptions));
+}
 
 app.use('/api', routes);
 
