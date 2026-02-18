@@ -32,6 +32,16 @@ export async function createLoanTx(args: {
   dueDate: Date;
   gracePeriodEnd: Date;
 }) {
+  function getInstallmentIntervalDays() {
+    const f = (args.repaymentFrequency ?? '').toLowerCase();
+    if (f.includes('week')) return 7;
+    if (f.includes('month')) return 30;
+    if (f.includes('day')) return 1;
+
+    if (!args.totalInstallments || args.totalInstallments <= 0) return 1;
+    return Math.floor(args.durationDays / args.totalInstallments) || 1;
+  }
+
   return prisma.$transaction(async (tx) => {
     const loan = await tx.loan.create({
       data: {
@@ -55,7 +65,7 @@ export async function createLoanTx(args: {
 
     if (args.totalInstallments && args.totalInstallments > 0) {
       const installmentAmount = args.totalRepayment.div(args.totalInstallments);
-      const perInstallmentDays = Math.floor(args.durationDays / args.totalInstallments) || 1;
+      const perInstallmentDays = getInstallmentIntervalDays();
       const installments = Array.from({ length: args.totalInstallments }).map((_, idx) => {
         const dueDate = new Date();
         dueDate.setDate(dueDate.getDate() + perInstallmentDays * (idx + 1));

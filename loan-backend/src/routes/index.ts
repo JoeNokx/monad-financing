@@ -9,6 +9,7 @@ import loansRoutes from '../modules/loans/routes';
 import ledgerRoutes from '../modules/ledger/routes';
 import transactionsRoutes from '../modules/transactions/routes';
 import notificationsRoutes from '../modules/notifications/routes';
+import adminRoutes from '../modules/admin/routes';
 import paystackRoutes from '../modules/paystack/paystack.routes';
 import webhookRoutes from '../modules/webhooks/webhook.routes';
 import personalLoanRoutes from '../modules/personal-loan/personal-loan.routes';
@@ -38,6 +39,7 @@ router.use('/business-loan', businessLoanRoutes);
 router.use('/ledger', ledgerRoutes);
 router.use('/transactions', transactionsRoutes);
 router.use('/notifications', notificationsRoutes);
+router.use('/admin', adminRoutes);
 router.use('/paystack', paystackRoutes);
 router.use('/webhooks', webhookRoutes);
 

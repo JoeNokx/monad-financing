@@ -13,3 +13,4 @@ router.post('/apply', authenticate, validateRequest(applyLoanSchema), apply);
 router.post('/:loanId/repay', authenticate, validateRequest(repayLoanSchema), repay);
 
 export default router;
+

@@ -16,6 +16,35 @@ function isBusiness(loanType: string) {
   return loanType.toLowerCase().includes('business');
 }
 
+async function getSettingsDefaultsForLoanType(loanType: string) {
+  const settings = await prisma.systemSettings.upsert({
+    where: { id: 'default' },
+    update: {},
+    create: { id: 'default' },
+  });
+
+  const interestRatePercent = settings.defaultInterestRatePercent.toNumber();
+  const gracePeriodDays = settings.defaultGracePeriodDays;
+  const penaltyPerDay = settings.defaultPenaltyPerDay.toNumber();
+  const maxPenalty = settings.defaultMaxPenalty.toNumber();
+
+  const repaymentFrequency = isBusiness(loanType)
+    ? settings.businessDefaultRepaymentFrequency
+    : settings.personalDefaultRepaymentFrequency;
+  const totalInstallments = isBusiness(loanType)
+    ? settings.businessDefaultTotalInstallments
+    : settings.personalDefaultTotalInstallments;
+
+  return {
+    interestRatePercent,
+    gracePeriodDays,
+    penaltyPerDay,
+    maxPenalty,
+    repaymentFrequency,
+    totalInstallments,
+  };
+}
+
 export async function listMyLoans(userId: string) {
   return listLoansByUserId(userId);
 }
@@ -46,12 +75,19 @@ export async function applyLoan(userId: string, input: ApplyLoanInput) {
     throw new ApiError('Business loan limit reached', { statusCode: 400, code: 'BUSINESS_LOAN_LIMIT' });
   }
 
-  const interestAmount = calculateInterest(principal, input.interestRatePercent);
+  const defaults = await getSettingsDefaultsForLoanType(input.loanType);
+  const interestRatePercent = input.interestRatePercent ?? defaults.interestRatePercent;
+  const gracePeriodDays = input.gracePeriodDays ?? defaults.gracePeriodDays;
+  const repaymentFrequency = input.repaymentFrequency ?? defaults.repaymentFrequency ?? undefined;
+  const totalInstallments = input.totalInstallments ?? defaults.totalInstallments ?? undefined;
+  const penaltyPerDay = input.penaltyPerDay ?? defaults.penaltyPerDay;
+  const maxPenalty = input.maxPenalty ?? defaults.maxPenalty;
+
+  const interestAmount = calculateInterest(principal, interestRatePercent);
   const totalRepayment = principal.plus(interestAmount);
 
   const now = new Date();
   const dueDate = addDays(now, input.durationDays);
-  const gracePeriodDays = input.gracePeriodDays ?? 3;
   const gracePeriodEnd = addDays(dueDate, gracePeriodDays);
 
   const loan = await createLoanTx({
@@ -59,10 +95,10 @@ export async function applyLoan(userId: string, input: ApplyLoanInput) {
     loanType: input.loanType,
     durationDays: input.durationDays,
     gracePeriodDays,
-    penaltyPerDay: input.penaltyPerDay === undefined ? null : new Prisma.Decimal(input.penaltyPerDay),
-    maxPenalty: input.maxPenalty === undefined ? null : new Prisma.Decimal(input.maxPenalty),
-    repaymentFrequency: input.repaymentFrequency ?? null,
-    totalInstallments: input.totalInstallments ?? null,
+    penaltyPerDay: penaltyPerDay === undefined ? null : new Prisma.Decimal(penaltyPerDay),
+    maxPenalty: maxPenalty === undefined ? null : new Prisma.Decimal(maxPenalty),
+    repaymentFrequency: repaymentFrequency ?? null,
+    totalInstallments: totalInstallments ?? null,
     principal,
     interestAmount,
     totalRepayment,

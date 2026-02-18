@@ -302,3 +302,23 @@ model FailedPinAttempt {
   @@index([createdAt])
   @@map("failed_pin_attempts")
 }
+
+model SystemSettings {
+  id String @id @default("default")
+
+  defaultInterestRatePercent Decimal @default(10)
+  defaultGracePeriodDays     Int     @default(3)
+  defaultPenaltyPerDay       Decimal @default(0)
+  defaultMaxPenalty          Decimal @default(0)
+
+  personalDefaultRepaymentFrequency String? @default("MONTHLY")
+  personalDefaultTotalInstallments  Int?
+
+  businessDefaultRepaymentFrequency String? @default("WEEKLY")
+  businessDefaultTotalInstallments  Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}

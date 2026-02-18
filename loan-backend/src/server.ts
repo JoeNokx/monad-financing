@@ -9,20 +9,53 @@ import { startScheduler, stopScheduler } from './jobs/scheduler';
 
 let server: http.Server | undefined;
 
-function getDatabaseTarget(databaseUrl: string) {
+type DatabaseTarget = {
+  protocol?: string;
+  host?: string;
+  port?: string;
+  database?: string;
+  username?: string;
+};
+
+function parseDatabaseTarget(databaseUrl: string): DatabaseTarget {
   try {
     const url = new URL(databaseUrl);
-    const dbName = url.pathname?.replace(/^\//, '') || undefined;
+    const database = url.pathname?.replace(/^\//, '') || undefined;
     return {
       protocol: url.protocol.replace(/:$/, ''),
       host: url.hostname,
       port: url.port || undefined,
-      database: dbName,
+      database,
       username: url.username || undefined,
     };
   } catch {
-    return { protocol: undefined, host: undefined, port: undefined, database: undefined, username: undefined };
+    return {};
   }
+}
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+function getRetryDelayMs(baseDelayMs: number, attempt: number) {
+  return baseDelayMs * Math.pow(2, attempt - 1);
+}
+
+function logDatabaseConnectionFailure(args: {
+  err: any;
+  attempt: number;
+  maxAttempts: number;
+  databaseUrl?: string;
+}) {
+  const target = args.databaseUrl ? parseDatabaseTarget(args.databaseUrl) : undefined;
+  logger.error('Database connection failed', {
+    attempt: args.attempt,
+    maxAttempts: args.maxAttempts,
+    errorCode: args.err?.errorCode,
+    name: args.err?.name,
+    clientVersion: args.err?.clientVersion,
+    target,
+  });
 }
 
 async function connectWithRetry() {
@@ -34,20 +67,17 @@ async function connectWithRetry() {
       await prisma.$connect();
       return;
     } catch (err: any) {
-      const target = env.DATABASE_URL ? getDatabaseTarget(env.DATABASE_URL) : undefined;
-      logger.error('Database connection failed', {
+      logDatabaseConnectionFailure({
+        err,
         attempt,
         maxAttempts,
-        errorCode: err?.errorCode,
-        name: err?.name,
-        clientVersion: err?.clientVersion,
-        target,
+        databaseUrl: env.DATABASE_URL,
       });
 
       if (attempt === maxAttempts) throw err;
 
-      const delayMs = baseDelayMs * Math.pow(2, attempt - 1);
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      const delayMs = getRetryDelayMs(baseDelayMs, attempt);
+      await sleep(delayMs);
     }
   }
 }

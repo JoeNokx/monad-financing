@@ -2,7 +2,7 @@ export type ApplyLoanInput = {
   loanType: string;
   amount: number;
   durationDays: number;
-  interestRatePercent: number;
+  interestRatePercent?: number;
   gracePeriodDays?: number;
   penaltyPerDay?: number;
   maxPenalty?: number;

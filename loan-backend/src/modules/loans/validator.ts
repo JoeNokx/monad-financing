@@ -5,7 +5,7 @@ export const applyLoanSchema = z.object({
     loanType: z.string().min(1),
     amount: z.number().positive(),
     durationDays: z.number().int().positive(),
-    interestRatePercent: z.number().nonnegative(),
+    interestRatePercent: z.number().nonnegative().optional(),
     gracePeriodDays: z.number().int().nonnegative().optional(),
     penaltyPerDay: z.number().nonnegative().optional(),
     maxPenalty: z.number().nonnegative().optional(),
