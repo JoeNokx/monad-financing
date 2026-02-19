@@ -1,1 +1,1 @@
-export { default } from '../features/onboarding/screens/WelcomeScreen';
+export { default } from '../features/onboarding/screens/SplashScreen';

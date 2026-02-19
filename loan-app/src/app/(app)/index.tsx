@@ -1,1 +1,1 @@
-export { default } from '../../features/loans/screens/DashboardScreen';
+export { default } from './home';
