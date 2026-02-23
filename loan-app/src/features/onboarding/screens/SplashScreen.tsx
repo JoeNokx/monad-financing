@@ -4,17 +4,21 @@ import { useEffect } from 'react';
 import { Text, View } from 'react-native';
 
 import { APP_NAME } from '../../../config/constants';
+import { useSecurity } from '../../security/security.session';
 
 export default function SplashScreen() {
   const router = useRouter();
+  const { hydrated, onboardingComplete } = useSecurity();
 
   useEffect(() => {
+    if (!hydrated) return;
+
     const id = setTimeout(() => {
-      router.replace('/onboarding');
+      router.replace(onboardingComplete ? '/(app)' : '/onboarding');
     }, 1200);
 
     return () => clearTimeout(id);
-  }, [router]);
+  }, [hydrated, onboardingComplete, router]);
 
   return (
     <View className="flex-1 items-center justify-center bg-blue-700">

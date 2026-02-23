@@ -1,8 +1,9 @@
-import { useClerk } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { APP_NAME } from '../../../config/constants';
+import { useClerk } from '@clerk/clerk-expo';
 import { useApiClient } from '../../../hooks/useApiClient';
 import { useQuery } from '../../../hooks/useQuery';
 import type { ApiEnvelope } from '../../../types/api';
@@ -38,6 +39,7 @@ function MenuItem(props: { icon: any; color: string; title: string; onPress?: ()
 }
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const api = useApiClient();
   const { signOut } = useClerk();
 
@@ -116,22 +118,52 @@ export default function ProfileScreen() {
           </View>
 
           <View className="h-5" />
-
-          <View className="gap-3">
-            <MenuItem icon="person-outline" color="bg-blue-50" title="Personal Information" />
-            <MenuItem icon="trending-up-outline" color="bg-emerald-50" title="Credit Score" />
-            <MenuItem icon="shield-outline" color="bg-purple-50" title="Security Settings" />
-            <MenuItem icon="card-outline" color="bg-emerald-50" title="Mobile Money" />
-            <MenuItem icon="help-circle-outline" color="bg-orange-50" title="Help & Support" />
-            <MenuItem icon="document-text-outline" color="bg-gray-100" title="Terms & Privacy" />
-            <MenuItem icon="log-out-outline" color="bg-red-50" title="Log Out" danger onPress={() => signOut()} />
-          </View>
-
-          <View className="h-8" />
-
-          <Text className="text-center text-gray-400">{APP_NAME} v1.0.0</Text>
         </>
       ) : null}
+
+      <View className="gap-3">
+        <MenuItem
+          icon="person-outline"
+          color="bg-blue-50"
+          title="Personal Information"
+          onPress={() => router.push({ pathname: '/(app)/placeholder', params: { title: 'Personal Information' } } as any)}
+        />
+        <MenuItem
+          icon="trending-up-outline"
+          color="bg-emerald-50"
+          title="Credit Score"
+          onPress={() => router.push({ pathname: '/(app)/placeholder', params: { title: 'Credit Score' } } as any)}
+        />
+        <MenuItem
+          icon="shield-outline"
+          color="bg-purple-50"
+          title="Security Settings"
+          onPress={() => router.push({ pathname: '/(app)/placeholder', params: { title: 'Security Settings' } } as any)}
+        />
+        <MenuItem
+          icon="card-outline"
+          color="bg-emerald-50"
+          title="Mobile Money"
+          onPress={() => router.push({ pathname: '/(app)/placeholder', params: { title: 'Mobile Money' } } as any)}
+        />
+        <MenuItem
+          icon="help-circle-outline"
+          color="bg-orange-50"
+          title="Help & Support"
+          onPress={() => router.push({ pathname: '/(app)/placeholder', params: { title: 'Help & Support' } } as any)}
+        />
+        <MenuItem
+          icon="document-text-outline"
+          color="bg-gray-100"
+          title="Terms & Privacy"
+          onPress={() => router.push({ pathname: '/(app)/placeholder', params: { title: 'Terms & Privacy' } } as any)}
+        />
+        <MenuItem icon="log-out-outline" color="bg-red-50" title="Log Out" danger onPress={() => void signOut()} />
+      </View>
+
+      <View className="h-8" />
+
+      <Text className="text-center text-gray-400">{APP_NAME} v1.0.0</Text>
     </ScrollView>
   );
 }

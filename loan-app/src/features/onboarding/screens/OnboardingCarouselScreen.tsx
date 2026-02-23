@@ -3,6 +3,8 @@ import { useMemo, useRef, useState } from 'react';
 import { Dimensions, FlatList, ImageBackground, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useSecurity } from '../../security/security.session';
+
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 type Slide = {
@@ -31,6 +33,7 @@ function Dots({ total, activeIndex }: { total: number; activeIndex: number }) {
 export default function OnboardingCarouselScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { setOnboardingComplete } = useSecurity();
 
   const slides: Slide[] = useMemo(
     () => [
@@ -39,21 +42,21 @@ export default function OnboardingCarouselScreen() {
         title: 'Easy Loans',
         description:
           'Get instant access to personal and business\nloans with minimal requirements. Apply in\nminutes and get approved fast.',
-        image: require('../../../../assets/onboarding/easy-loans.jpg'),
+        image: require('../../../../assets/onboarding/easy-loans.jpeg'),
       },
       {
         key: 'flexible-repayment',
         title: 'Flexible Repayment',
         description:
           'Choose your repayment schedule that works for\nyou. Pay early and save on interest. We reward\nresponsible borrowers.',
-        image: require('../../../../assets/onboarding/flexible-repayment.jpg'),
+        image: require('../../../../assets/onboarding/flexible-repayment.jpeg'),
       },
       {
         key: 'secure-trusted',
         title: 'Secure & Trusted',
         description:
           'Bank-level security protects your data. Your\ninformation is encrypted and safe. Join\nthousands of satisfied customers.',
-        image: require('../../../../assets/onboarding/secure-trusted.jpg'),
+        image: require('../../../../assets/onboarding/secure-trusted.jpeg'),
       },
     ],
     [],
@@ -67,7 +70,8 @@ export default function OnboardingCarouselScreen() {
     setActiveIndex(index);
   }
 
-  function finish() {
+  async function finish() {
+    await setOnboardingComplete();
     router.replace('/(auth)/sign-in');
   }
 
@@ -102,7 +106,7 @@ export default function OnboardingCarouselScreen() {
 
       <View style={{ paddingTop: insets.top + 16 }} className="absolute left-0 right-0 top-0 px-5">
         <View className="flex-row justify-end">
-          <Pressable onPress={finish} className="rounded-full bg-gray-200/40 px-5 py-2">
+          <Pressable onPress={() => void finish()} className="rounded-full bg-gray-200/40 px-5 py-2">
             <Text className="font-semibold text-white">Skip</Text>
           </Pressable>
         </View>
@@ -122,7 +126,7 @@ export default function OnboardingCarouselScreen() {
         <Pressable
           onPress={() => {
             if (isLast) {
-              finish();
+              void finish();
               return;
             }
             goTo(activeIndex + 1);

@@ -53,13 +53,6 @@ function missingPrimaryEmail() {
   });
 }
 
-function missingPrimaryPhone() {
-  return new ApiError('Clerk user is missing a primary phone number', {
-    statusCode: 400,
-    code: 'MISSING_PHONE',
-  });
-}
-
 function logMissingUserId(req: Parameters<RequestHandler>[0], auth: ReturnType<typeof getAuth>) {
   const authorization = req.headers.authorization;
   const scheme = authorization ? authorization.split(' ')[0] : undefined;
@@ -87,7 +80,6 @@ async function getOrCreateUserForClerkId(clerkId: string) {
   if (!email) throw missingPrimaryEmail();
 
   const phone = clerkUser.phoneNumbers.find((p) => p.id === clerkUser.primaryPhoneNumberId)?.phoneNumber;
-  if (!phone) throw missingPrimaryPhone();
 
   const fullName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || undefined;
 
@@ -95,7 +87,7 @@ async function getOrCreateUserForClerkId(clerkId: string) {
     data: {
       clerkId,
       email,
-      phone,
+      ...(phone ? { phone } : {}),
       fullName,
     },
     select: { id: true, clerkId: true, email: true },
@@ -120,9 +112,9 @@ async function getRoleNamesForUserId(userId: string) {
 const authenticate: RequestHandler = async (req, _res, next) => {
   try {
     const auth = getAuth(req);
-    req.auth = auth;
 
     if (!auth?.userId) {
+      console.log('No user ID found in auth', auth);
       logMissingUserId(req, auth);
       return next(unauthorized());
     }

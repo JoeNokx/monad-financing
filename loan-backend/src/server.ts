@@ -17,6 +17,8 @@ type DatabaseTarget = {
   username?: string;
 };
 
+// Extract only non-sensitive parts of DATABASE_URL for logs.
+// (We intentionally do not log the full URL to avoid leaking credentials.)
 function parseDatabaseTarget(databaseUrl: string): DatabaseTarget {
   try {
     const url = new URL(databaseUrl);
@@ -38,6 +40,7 @@ function sleep(ms: number) {
 }
 
 function getRetryDelayMs(baseDelayMs: number, attempt: number) {
+  // Exponential backoff: 500ms, 1s, 2s, 4s, ...
   return baseDelayMs * Math.pow(2, attempt - 1);
 }
 
@@ -47,6 +50,7 @@ function logDatabaseConnectionFailure(args: {
   maxAttempts: number;
   databaseUrl?: string;
 }) {
+  // Log structured + scrubbed details to help debug connection issues without leaking secrets.
   const target = args.databaseUrl ? parseDatabaseTarget(args.databaseUrl) : undefined;
   logger.error('Database connection failed', {
     attempt: args.attempt,
@@ -59,6 +63,7 @@ function logDatabaseConnectionFailure(args: {
 }
 
 async function connectWithRetry() {
+  // In dev/test, allow more retries so a local DB can finish booting.
   const maxAttempts = env.NODE_ENV === 'production' ? 3 : 10;
   const baseDelayMs = 500;
 
@@ -90,7 +95,7 @@ async function start() {
 
   server = http.createServer(app);
 
-  server.listen(env.PORT, () => {
+  server.listen(env.PORT, "0.0.0.0", () => {
     logger.info('Server listening', { port: env.PORT, env: env.NODE_ENV });
   });
 

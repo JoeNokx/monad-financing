@@ -4,17 +4,30 @@ import { ClerkProvider } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { requireEnv } from '../config/env';
-import { RootNavigator } from './RootNavigator';
+import { env } from '../config/env';
+import { SecurityProvider } from '../features/security/security.session';
+import { RootNavigator } from '../navigation/RootNavigator';
 
 export default function RootLayout() {
-  const publishableKey = requireEnv('clerkPublishableKey');
+  const publishableKey = env.clerkPublishableKey;
+
+  if (!publishableKey) {
+    return (
+      <SecurityProvider>
+        <SafeAreaProvider>
+          <RootNavigator />
+        </SafeAreaProvider>
+      </SecurityProvider>
+    );
+  }
 
   return (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <SafeAreaProvider>
-        <RootNavigator />
-      </SafeAreaProvider>
+      <SecurityProvider>
+        <SafeAreaProvider>
+          <RootNavigator />
+        </SafeAreaProvider>
+      </SecurityProvider>
     </ClerkProvider>
   );
 }

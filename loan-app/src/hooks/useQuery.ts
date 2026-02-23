@@ -8,6 +8,11 @@ type State<T> = {
 
 export function useQuery<T>(fn: () => Promise<T>, deps: any[]) {
   const [state, setState] = useState<State<T>>({ data: null, error: null, loading: true });
+  const [nonce, setNonce] = useState(0);
+
+  const refetch = () => {
+    setNonce((n) => n + 1);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -29,7 +34,7 @@ export function useQuery<T>(fn: () => Promise<T>, deps: any[]) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  }, [...deps, nonce]);
 
-  return state;
+  return { ...state, refetch };
 }

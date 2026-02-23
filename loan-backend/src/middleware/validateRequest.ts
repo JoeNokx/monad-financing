@@ -23,6 +23,12 @@ export default function validateRequest(schema: RequestSchema): RequestHandler {
       );
     }
 
+    const data = (result as any).data as { body?: unknown; params?: unknown; query?: unknown };
+
+    (req as any).body = data?.body ?? req.body;
+    (req as any).params = data?.params ?? req.params;
+    (req as any).query = data?.query ?? req.query;
+
     next();
   };
 }

@@ -4,6 +4,7 @@ import prisma from '../config/database';
 import { env } from '../config/env';
 import usersRoutes from '../modules/users/routes';
 import authRoutes from '../modules/auth/routes';
+import profileRoutes from '../modules/profile/routes';
 import kycRoutes from '../modules/kyc/routes';
 import loansRoutes from '../modules/loans/routes';
 import ledgerRoutes from '../modules/ledger/routes';
@@ -32,6 +33,7 @@ router.get('/health', async (_req, res) => {
 
 router.use('/users', usersRoutes);
 router.use('/auth', authRoutes);
+router.use('/profile', profileRoutes);
 router.use('/kyc', kycRoutes);
 router.use('/loans', loansRoutes);
 router.use('/personal-loan', personalLoanRoutes);

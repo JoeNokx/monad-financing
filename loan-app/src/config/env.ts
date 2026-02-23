@@ -1,5 +1,5 @@
 export const env = {
-  clerkPublishableKey: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY,
+  clerkPublishableKey: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? process.env.EXPO_CLERK_PUBLISHABLE_KEY,
   apiUrl: process.env.EXPO_PUBLIC_API_URL,
 } as const;
 

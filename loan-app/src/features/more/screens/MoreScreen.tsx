@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
 function Bullet({ text }: { text: string }) {
   return (
@@ -28,6 +29,21 @@ function InfoCard(props: { title: string; subtitle: string; icon: any; iconBg: s
 }
 
 export default function MoreScreen() {
+  const router = useRouter();
+
+  const openWhatsApp = async () => {
+    const phone = '233546022758';
+    const appUrl = `whatsapp://send?phone=${phone}`;
+    const webUrl = `https://wa.me/${phone}`;
+
+    try {
+      const supported = await Linking.canOpenURL(appUrl);
+      await Linking.openURL(supported ? appUrl : webUrl);
+    } catch {
+      await Linking.openURL(webUrl);
+    }
+  };
+
   return (
     <ScrollView className="flex-1 bg-white" contentContainerClassName="px-5 pb-10 pt-8">
       <Text className="text-3xl font-semibold text-gray-900">More</Text>
@@ -57,23 +73,27 @@ export default function MoreScreen() {
 
       <View className="h-5" />
 
-      <InfoCard
-        title="About FlexiLoan"
-        subtitle="Learn more about our mission and values"
-        icon="information"
-        iconBg="bg-blue-50"
-        iconColor="#2563EB"
-      />
+      <Pressable onPress={() => router.push('/(app)/about')} accessibilityRole="button">
+        <InfoCard
+          title="About MONaD FINANCING"
+          subtitle="Learn more about our mission and values"
+          icon="information"
+          iconBg="bg-blue-50"
+          iconColor="#2563EB"
+        />
+      </Pressable>
 
       <View className="h-4" />
 
-      <InfoCard
-        title="Need Help?"
-        subtitle="Chat with our support team on WhatsApp"
-        icon="logo-whatsapp"
-        iconBg="bg-green-50"
-        iconColor="#22C55E"
-      />
+      <Pressable onPress={() => void openWhatsApp()} accessibilityRole="button">
+        <InfoCard
+          title="Need Help?"
+          subtitle="Chat with our support team on WhatsApp"
+          icon="logo-whatsapp"
+          iconBg="bg-green-50"
+          iconColor="#22C55E"
+        />
+      </Pressable>
 
       <View className="h-4" />
 

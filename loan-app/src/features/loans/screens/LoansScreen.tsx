@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
+import { Button } from '../../../components/ui/Button';
 import { useApiClient } from '../../../hooks/useApiClient';
 import { useQuery } from '../../../hooks/useQuery';
 import { formatGhs, daysUntil, toNumber } from '../../../utils/format';
@@ -28,17 +30,18 @@ function loanTypeLabel(loanType: string) {
 }
 
 export default function LoansScreen() {
+  const router = useRouter();
   const api = useApiClient();
   const [tab, setTab] = useState<TabKey>('active');
 
-  const { data, error, loading } = useQuery(async () => {
+  const { data, error, loading, refetch } = useQuery(async () => {
     return api.request<LoansResponse>({ path: '/api/loans' });
   }, [api]);
 
   const loans = data?.data ?? [];
 
   const activeLoans = useMemo(() => loans.filter((l) => l.status === 'ACTIVE'), [loans]);
-  const historyLoans = useMemo(() => loans.filter((l) => l.status !== 'ACTIVE'), [loans]);
+  const historyLoans = useMemo(() => loans.filter((l) => l.status === 'COMPLETED'), [loans]);
 
   const outstanding = useMemo(() => {
     return activeLoans.reduce((sum, l) => sum + toNumber(l.remainingBalance), 0);
@@ -94,7 +97,15 @@ export default function LoansScreen() {
       <View className="h-4" />
 
       {loading ? <Text className="text-gray-500">Loading...</Text> : null}
-      {error ? <Text className="text-red-600">{error}</Text> : null}
+      {error ? (
+        <View className="rounded-2xl border border-red-100 bg-red-50 p-4">
+          <Text className="font-semibold text-red-700">Unable to load loans</Text>
+          <View className="h-1" />
+          <Text className="text-red-600">{error}</Text>
+          <View className="h-4" />
+          <Button title="Retry" onPress={refetch} />
+        </View>
+      ) : null}
 
       {!loading && !error ? (
         <View className="gap-4">
@@ -171,7 +182,19 @@ export default function LoansScreen() {
           })}
 
           {(tab === 'active' ? activeLoans : historyLoans).length === 0 ? (
-            <Text className="text-gray-500">No loans found.</Text>
+            tab === 'active' ? (
+              <View className="rounded-2xl border border-gray-100 bg-white p-5">
+                <Text className="text-base font-semibold text-gray-900">No active loan yet</Text>
+                <View className="h-1" />
+                <Text className="text-gray-600">Request a loan to get started.</Text>
+                <View className="h-4" />
+                <Button title="Request a Loan" onPress={() => router.push('/(app)/request-loan')} />
+              </View>
+            ) : (
+              <View className="rounded-2xl border border-gray-100 bg-white p-5">
+                <Text className="text-base font-semibold text-gray-900">No completed loan yet</Text>
+              </View>
+            )
           ) : null}
         </View>
       ) : null}

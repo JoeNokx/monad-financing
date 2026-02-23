@@ -37,18 +37,24 @@ app.use(apiRateLimit);
 app.use(requestLogger);
 
 if (env.NODE_ENV !== 'test') {
-  const authorizedParties = env.CLERK_AUTHORIZED_PARTIES?.split(',').map((s) => s.trim()).filter(Boolean);
+  // Clerk middleware validates auth on incoming requests.
+  // CLERK_AUTHORIZED_PARTIES is optional and can be used to restrict which frontend origins are accepted.
+  const authorizedParties =
+    env.NODE_ENV === 'production'
+      ? env.CLERK_AUTHORIZED_PARTIES?.split(',').map((s) => s.trim()).filter(Boolean)
+      : undefined;
 
   const clerkOptions: any = {
     publishableKey: clerkConfig.publishableKey,
     secretKey: clerkConfig.secretKey,
+    enableHandshake: false,
   };
 
   if (authorizedParties && authorizedParties.length > 0) {
     clerkOptions.authorizedParties = authorizedParties;
   }
 
-  app.use(clerkMiddleware(clerkOptions));
+  app.use('/api', clerkMiddleware(clerkOptions));
 }
 
 app.use('/api', routes);

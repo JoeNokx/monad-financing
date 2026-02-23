@@ -1,1 +1,1 @@
-export const APP_NAME = 'LoanHub';
+export const APP_NAME = 'MONaD FINANCING';
