@@ -1,6 +1,5 @@
 import { useRouter } from 'expo-router';
-import { Redirect } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Text, View } from 'react-native';
 
 import { useAuth } from '@clerk/clerk-expo';
@@ -11,8 +10,20 @@ import { env } from '../../../config/env';
 import { useSecurity } from '../../security/security.session';
 
 export default function ConfirmPinScreen() {
-  if (!env.clerkPublishableKey) {
-    return <Redirect href="/(app)" />;
+  const router = useRouter();
+  const didNavRef = useRef(false);
+
+  const hasClerk = Boolean(env.clerkPublishableKey);
+
+  useEffect(() => {
+    if (hasClerk) return;
+    if (didNavRef.current) return;
+    didNavRef.current = true;
+    router.replace('/(app)');
+  }, [hasClerk, router]);
+
+  if (!hasClerk) {
+    return null;
   }
 
   return <ConfirmPinInner />;
@@ -20,26 +31,31 @@ export default function ConfirmPinScreen() {
 
 function ConfirmPinInner() {
   const router = useRouter();
-  const { isSignedIn } = useAuth();
+  const lastTargetRef = useRef<string | null>(null);
+  const { isLoaded, isSignedIn } = useAuth();
   const { hydrated, onboardingComplete, pendingPin, clearPendingPin, setPin } = useSecurity();
 
   const [pin, setPinInput] = useState('');
 
   useEffect(() => {
-    if (!hydrated) return;
-    if (!onboardingComplete) {
-      router.replace('/onboarding');
-      return;
-    }
-    if (!isSignedIn) {
-      router.replace('/(auth)/sign-in');
+    if (!hydrated || !isLoaded) return;
+
+    const target = (() => {
+      if (!onboardingComplete) return '/onboarding';
+      if (!isSignedIn) return '/(auth)/sign-in';
+      if (!pendingPin) return '/(auth)/create-pin';
+      return null;
+    })();
+
+    if (!target) {
+      lastTargetRef.current = null;
       return;
     }
 
-    if (!pendingPin) {
-      router.replace('/(auth)/create-pin');
-    }
-  }, [hydrated, onboardingComplete, isSignedIn, pendingPin, router]);
+    if (lastTargetRef.current === target) return;
+    lastTargetRef.current = target;
+    router.replace(target as any);
+  }, [hydrated, isLoaded, onboardingComplete, isSignedIn, pendingPin, router]);
 
   const canContinue = useMemo(() => pin.length === 4, [pin]);
 

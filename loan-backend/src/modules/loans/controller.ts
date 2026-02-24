@@ -2,13 +2,33 @@ import type { RequestHandler } from 'express';
 
 import ApiError from '../../common/errors/ApiError';
 import { recordRepayment } from '../repayment/repayment.service';
-import { applyLoan, getMyLoan, listMyLoans } from './service';
+import { applyLoan, getLoanProducts, getMyLoan, listMyLoans, quoteLoan } from './service';
 
 export const list: RequestHandler = async (req, res, next) => {
   try {
     if (!req.currentUser) throw new ApiError('Unauthorized', { statusCode: 401, code: 'UNAUTHORIZED' });
     const loans = await listMyLoans(req.currentUser.id);
     res.json({ success: true, data: loans });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const products: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.currentUser) throw new ApiError('Unauthorized', { statusCode: 401, code: 'UNAUTHORIZED' });
+    const data = await getLoanProducts(req.currentUser.id);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const quote: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.currentUser) throw new ApiError('Unauthorized', { statusCode: 401, code: 'UNAUTHORIZED' });
+    const data = await quoteLoan(req.currentUser.id, req.body);
+    res.json({ success: true, data });
   } catch (err) {
     next(err);
   }

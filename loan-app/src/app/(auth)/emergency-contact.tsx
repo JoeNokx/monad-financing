@@ -1,5 +1,15 @@
-import { Redirect } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { useEffect, useRef } from 'react';
 
 export default function EmergencyContactRoute() {
-  return <Redirect href="/(setup)/emergency" />;
+  const router = useRouter();
+  const didNavRef = useRef(false);
+
+  useEffect(() => {
+    if (didNavRef.current) return;
+    didNavRef.current = true;
+    router.replace('/(setup)/emergency');
+  }, [router]);
+
+  return null;
 }

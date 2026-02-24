@@ -10,6 +10,11 @@ export type UpdateSystemSettingsInput = {
 
   businessDefaultRepaymentFrequency?: string | null;
   businessDefaultTotalInstallments?: number | null;
+
+  personalMinLoanAmount?: number | null;
+  personalDurationOptionsDays?: number[] | null;
+  personalInterestRatePercent?: number | null;
+  personalServiceChargePercent?: number | null;
 };
 
 export type SetUserRolesInput = {

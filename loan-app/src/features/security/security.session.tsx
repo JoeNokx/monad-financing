@@ -70,9 +70,7 @@ export function SecurityProvider({ children }: PropsWithChildren) {
         backgroundAtRef.current = null;
         if (!bgAt) return;
 
-        const elapsedMs = Date.now() - bgAt;
-        const TEN_MINUTES_MS = 10 * 60 * 1000;
-        if (elapsedMs >= TEN_MINUTES_MS) {
+        if (hasPin) {
           setLocked(true);
         }
       }
@@ -80,7 +78,7 @@ export function SecurityProvider({ children }: PropsWithChildren) {
 
     const sub = AppState.addEventListener('change', onAppStateChange);
     return () => sub.remove();
-  }, []);
+  }, [hasPin]);
 
   const setOnboardingComplete = useCallback(async () => {
     await setSecureItem(ONBOARDING_KEY, 'true');

@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Text, View } from 'react-native';
 
 import { Button } from '../../../components/ui/Button';
@@ -22,6 +22,7 @@ function nextRouteFromProfile(res: ProfileMeResponse | null) {
 export default function SetupIndexScreen() {
   const router = useRouter();
   const api = useApiClient();
+  const lastNextRef = useRef<string | null>(null);
 
   const query = useQuery(async () => {
     return api.request<ApiEnvelope<ProfileMeResponse>>({ path: '/api/profile/me' });
@@ -31,6 +32,8 @@ export default function SetupIndexScreen() {
     if (query.loading || query.error) return;
 
     const next = nextRouteFromProfile(query.data?.data ?? null);
+    if (lastNextRef.current === next) return;
+    lastNextRef.current = next;
     router.replace(next);
   }, [query.loading, query.error, query.data, router]);
 

@@ -121,6 +121,10 @@ model Loan {
   userId   String
   loanType String
 
+  interestRatePercent  Decimal @default(0)
+  serviceChargePercent Decimal @default(0)
+  serviceChargeAmount  Decimal @default(0)
+
   duration         Int?
   gracePeriodDays  Int?      @default(3)
   gracePeriodEnd   DateTime?
@@ -316,6 +320,11 @@ model SystemSettings {
 
   businessDefaultRepaymentFrequency String? @default("WEEKLY")
   businessDefaultTotalInstallments  Int?
+
+  personalMinLoanAmount        Decimal? // GH₵ floor for personal loans
+  personalDurationOptionsDays  Json @default([7,14,30]) // number[] e.g. [7,14,30]
+  personalInterestRatePercent  Decimal? // override (otherwise defaultInterestRatePercent)
+  personalServiceChargePercent Decimal? // applied on principal
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

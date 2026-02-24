@@ -81,7 +81,7 @@ export default function HomeScreen() {
 
         <View className="h-4" />
 
-        <Button title="Request a Loan" onPress={() => router.push('/(app)/loans')} />
+        <Button title="Request a Loan" onPress={() => router.push('/(app)/request-loan')} />
       </View>
 
       <View className="h-5" />

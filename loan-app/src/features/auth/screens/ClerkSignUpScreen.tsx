@@ -1,6 +1,5 @@
 import { useRouter } from 'expo-router';
-import { Redirect } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Text, View } from 'react-native';
 
 import { useSignUp } from '@clerk/clerk-expo';
@@ -10,8 +9,20 @@ import { Input } from '../../../components/ui/Input';
 import { env } from '../../../config/env';
 
 export default function ClerkSignUpScreen() {
-  if (!env.clerkPublishableKey) {
-    return <Redirect href="/(app)" />;
+  const router = useRouter();
+  const didNavRef = useRef(false);
+
+  const hasClerk = Boolean(env.clerkPublishableKey);
+
+  useEffect(() => {
+    if (hasClerk) return;
+    if (didNavRef.current) return;
+    didNavRef.current = true;
+    router.replace('/(app)');
+  }, [hasClerk, router]);
+
+  if (!hasClerk) {
+    return null;
   }
 
   return <ClerkSignUpInner />;

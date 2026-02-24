@@ -92,6 +92,7 @@ async function start() {
   requireEnv('CLERK_SECRET_KEY');
 
   await connectWithRetry();
+  logger.info('Database connected', { target: parseDatabaseTarget(env.DATABASE_URL!) });
 
   server = http.createServer(app);
 

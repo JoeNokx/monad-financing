@@ -1,32 +1,39 @@
 import { useAuth } from '@clerk/clerk-expo';
-import { Redirect, Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { env } from '../../config/env';
 import { useSecurity } from '../../features/security/security.session';
 
 export default function SetupLayout() {
+  const router = useRouter();
+  const lastTargetRef = useRef<string | null>(null);
   const { hydrated, onboardingComplete, hasPin, locked } = useSecurity();
+  const { isLoaded, isSignedIn } = useAuth();
 
-  if (!env.clerkPublishableKey) {
-    return <Redirect href="/(app)" />;
-  }
+  const navTarget = useMemo(() => {
+    if (!env.clerkPublishableKey) return '/(app)';
+    if (!hydrated || !isLoaded) return null;
+    if (!onboardingComplete) return '/onboarding';
+    if (!isSignedIn) return '/(auth)/sign-in';
+    if (!hasPin) return '/(auth)/create-pin';
+    if (locked) return '/(auth)/pin-login';
+    return null;
+  }, [hydrated, isLoaded, onboardingComplete, isSignedIn, hasPin, locked]);
 
-  return <SetupLayoutInner hydrated={hydrated} onboardingComplete={onboardingComplete} hasPin={hasPin} locked={locked} />;
-}
+  useEffect(() => {
+    if (!navTarget) {
+      lastTargetRef.current = null;
+      return;
+    }
 
-function SetupLayoutInner(props: {
-  hydrated: boolean;
-  onboardingComplete: boolean;
-  hasPin: boolean;
-  locked: boolean;
-}) {
-  const { isSignedIn } = useAuth();
+    if (lastTargetRef.current === navTarget) return;
+    lastTargetRef.current = navTarget;
+    router.replace(navTarget as any);
+  }, [router, navTarget]);
 
-  if (!props.hydrated) return null;
-  if (!props.onboardingComplete) return <Redirect href="/onboarding" />;
-  if (!isSignedIn) return <Redirect href="/(auth)/sign-in" />;
-  if (!props.hasPin) return <Redirect href="/(auth)/create-pin" />;
-  if (props.locked) return <Redirect href="/(auth)/pin-login" />;
+  if (!hydrated || !isLoaded) return null;
+  if (navTarget) return null;
 
   return <Stack screenOptions={{ headerShown: false }} />;
 }

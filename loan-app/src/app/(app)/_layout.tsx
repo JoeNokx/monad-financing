@@ -1,7 +1,7 @@
-import { SignedIn, SignedOut, useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
-import { Redirect, Tabs } from 'expo-router';
-import { useEffect } from 'react';
+import { Tabs, useRouter } from 'expo-router';
+import { useEffect, useMemo, useRef } from 'react';
 import { Text, View } from 'react-native';
 
 import { env } from '../../config/env';
@@ -21,7 +21,9 @@ export default function AppLayout() {
 }
 
 function ClerkGatedTabs() {
-  const { isSignedIn, sessionId } = useAuth();
+  const router = useRouter();
+  const lastTargetRef = useRef<string | null>(null);
+  const { isLoaded, isSignedIn, sessionId } = useAuth();
   const { hydrated, onboardingComplete, hasPin, locked, syncClerkSessionId } = useSecurity();
   const api = useApiClient();
 
@@ -40,24 +42,35 @@ function ClerkGatedTabs() {
     syncClerkSessionId(sessionId ?? null);
   }, [hydrated, sessionId, syncClerkSessionId]);
 
-  if (!hydrated) {
+  const navTarget = useMemo(() => {
+    if (!hydrated || !isLoaded) return null;
+
+    if (!onboardingComplete) return '/onboarding';
+    if (!isSignedIn) return '/(auth)/sign-in';
+    if (!hasPin) return '/(auth)/create-pin';
+    if (locked) return '/(auth)/pin-login';
+    if (profileQuery.data && !profileQuery.data.data.isComplete) return '/(setup)';
+
+    return null;
+  }, [hydrated, isLoaded, onboardingComplete, isSignedIn, hasPin, locked, profileQuery.data]);
+
+  useEffect(() => {
+    if (!navTarget) {
+      lastTargetRef.current = null;
+      return;
+    }
+
+    if (lastTargetRef.current === navTarget) return;
+    lastTargetRef.current = navTarget;
+    router.replace(navTarget as any);
+  }, [router, navTarget]);
+
+  if (!hydrated || !isLoaded) {
     return null;
   }
 
-  if (!onboardingComplete) {
-    return <Redirect href="/onboarding" />;
-  }
-
-  if (!isSignedIn) {
-    return <Redirect href="/(auth)/sign-in" />;
-  }
-
-  if (!hasPin) {
-    return <Redirect href="/(auth)/create-pin" />;
-  }
-
-  if (locked) {
-    return <Redirect href="/(auth)/pin-login" />;
+  if (navTarget) {
+    return null;
   }
 
   if (profileQuery.error) {
@@ -72,53 +85,45 @@ function ClerkGatedTabs() {
     );
   }
 
-  if (profileQuery.data && !profileQuery.data.data.isComplete) {
-    return <Redirect href="/(setup)" />;
-  }
-
   return (
-    <>
-      <SignedIn>
-        <Tabs
-          screenOptions={({ route }) => ({
-            headerShown: false,
-            tabBarActiveTintColor: '#7C3AED',
-            tabBarInactiveTintColor: '#9CA3AF',
-            tabBarIcon: ({ color, size }) => {
-              const name = (() => {
-                switch (route.name) {
-                  case 'home':
-                    return 'home-outline';
-                  case 'loans':
-                    return 'briefcase-outline';
-                  case 'more':
-                    return 'menu-outline';
-                  case 'profile':
-                    return 'person-outline';
-                  default:
-                    return 'ellipse-outline';
-                }
-              })();
+    <Tabs
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: '#7C3AED',
+        tabBarInactiveTintColor: '#9CA3AF',
+        tabBarIcon: ({ color, size }) => {
+          const name = (() => {
+            switch (route.name) {
+              case 'home':
+                return 'home-outline';
+              case 'loans':
+                return 'briefcase-outline';
+              case 'more':
+                return 'menu-outline';
+              case 'profile':
+                return 'person-outline';
+              default:
+                return 'ellipse-outline';
+            }
+          })();
 
-              return <Ionicons name={name as any} size={size} color={color} />;
-            },
-          })}
-        >
-          <Tabs.Screen name="index" options={{ href: null }} />
-          <Tabs.Screen name="home" options={{ title: 'Home' }} />
-          <Tabs.Screen name="loans" options={{ title: 'Loans' }} />
-          <Tabs.Screen name="more" options={{ title: 'More' }} />
-          <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
-          <Tabs.Screen name="about" options={{ href: null }} />
-          <Tabs.Screen name="placeholder" options={{ href: null }} />
-          <Tabs.Screen name="request-loan" options={{ href: null }} />
-        </Tabs>
-      </SignedIn>
-
-      <SignedOut>
-        <Redirect href="/(auth)/sign-in" />
-      </SignedOut>
-    </>
+          return <Ionicons name={name as any} size={size} color={color} />;
+        },
+      })}
+    >
+      <Tabs.Screen name="index" options={{ href: null }} />
+      <Tabs.Screen name="home" options={{ title: 'Home' }} />
+      <Tabs.Screen name="loans" options={{ title: 'Loans' }} />
+      <Tabs.Screen name="more" options={{ title: 'More' }} />
+      <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+      <Tabs.Screen name="about" options={{ href: null }} />
+      <Tabs.Screen name="placeholder" options={{ href: null }} />
+      <Tabs.Screen name="request-loan" options={{ href: null }} />
+      <Tabs.Screen name="quick-personal-loan" options={{ href: null }} />
+      <Tabs.Screen name="request-personal-loan" options={{ href: null }} />
+      <Tabs.Screen name="review-confirm-loan" options={{ href: null }} />
+      <Tabs.Screen name="loan-processing" options={{ href: null }} />
+    </Tabs>
   );
 }
 
@@ -157,6 +162,10 @@ function FallbackTabs() {
       <Tabs.Screen name="about" options={{ href: null }} />
       <Tabs.Screen name="placeholder" options={{ href: null }} />
       <Tabs.Screen name="request-loan" options={{ href: null }} />
+      <Tabs.Screen name="quick-personal-loan" options={{ href: null }} />
+      <Tabs.Screen name="request-personal-loan" options={{ href: null }} />
+      <Tabs.Screen name="review-confirm-loan" options={{ href: null }} />
+      <Tabs.Screen name="loan-processing" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -25,3 +25,13 @@ export const repayLoanSchema = z.object({
   }),
   query: z.object({}).optional(),
 });
+
+export const quoteLoanSchema = z.object({
+  body: z.object({
+    loanType: z.string().min(1),
+    amount: z.number().positive(),
+    durationDays: z.number().int().positive(),
+  }),
+  params: z.object({}).optional(),
+  query: z.object({}).optional(),
+});

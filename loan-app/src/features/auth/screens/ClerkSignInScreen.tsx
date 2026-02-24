@@ -1,8 +1,8 @@
 import { useRouter } from 'expo-router';
-import { Redirect } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Text, View } from 'react-native';
 
+import { useAuth } from '@clerk/clerk-expo';
 import { useSignIn } from '@clerk/clerk-expo';
 
 import { Button } from '../../../components/ui/Button';
@@ -11,8 +11,20 @@ import { env } from '../../../config/env';
 import { useSecurity } from '../../security/security.session';
 
 export default function ClerkSignInScreen() {
-  if (!env.clerkPublishableKey) {
-    return <Redirect href="/(app)" />;
+  const router = useRouter();
+  const didNavRef = useRef(false);
+
+  const hasClerk = Boolean(env.clerkPublishableKey);
+
+  useEffect(() => {
+    if (hasClerk) return;
+    if (didNavRef.current) return;
+    didNavRef.current = true;
+    router.replace('/(app)');
+  }, [hasClerk, router]);
+
+  if (!hasClerk) {
+    return null;
   }
 
   return <ClerkSignInInner />;
@@ -20,8 +32,30 @@ export default function ClerkSignInScreen() {
 
 function ClerkSignInInner() {
   const router = useRouter();
+  const lastTargetRef = useRef<string | null>(null);
+  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
   const { isLoaded, signIn, setActive } = useSignIn();
-  const { hydrated, hasPin } = useSecurity();
+  const { hydrated, onboardingComplete, hasPin, locked } = useSecurity();
+
+  useEffect(() => {
+    if (!hydrated || !isAuthLoaded) return;
+    const target = (() => {
+      if (!onboardingComplete) return '/onboarding';
+      if (!isSignedIn) return null;
+      if (!hasPin) return '/(auth)/create-pin';
+      if (locked) return '/(auth)/pin-login';
+      return '/(app)/home';
+    })();
+
+    if (!target) {
+      lastTargetRef.current = null;
+      return;
+    }
+
+    if (lastTargetRef.current === target) return;
+    lastTargetRef.current = target;
+    router.replace(target as any);
+  }, [hydrated, isAuthLoaded, onboardingComplete, isSignedIn, hasPin, locked, router]);
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -55,6 +89,14 @@ function ClerkSignInInner() {
         disabled={!canSubmit || !isLoaded}
         onPress={async () => {
           if (!isLoaded) return;
+          if (isAuthLoaded && isSignedIn) {
+            if (hydrated && hasPin) {
+              router.replace('/(auth)/pin-login');
+            } else {
+              router.replace('/(auth)/create-pin');
+            }
+            return;
+          }
           try {
             const res = await signIn.create({ identifier, password });
             if (res.createdSessionId) {
@@ -69,6 +111,15 @@ function ClerkSignInInner() {
 
             Alert.alert('Sign in', 'Sign in requires additional steps.');
           } catch (err: any) {
+            if (isAuthLoaded && isSignedIn) {
+              if (hydrated && hasPin) {
+                router.replace('/(auth)/pin-login');
+              } else {
+                router.replace('/(auth)/create-pin');
+              }
+              return;
+            }
+
             Alert.alert('Sign in failed', err?.errors?.[0]?.longMessage ?? 'Please try again');
           }
         }}

@@ -14,6 +14,11 @@ export const updateSystemSettingsSchema = z.object({
 
       businessDefaultRepaymentFrequency: z.string().nullable().optional(),
       businessDefaultTotalInstallments: z.number().int().positive().nullable().optional(),
+
+      personalMinLoanAmount: z.number().positive().nullable().optional(),
+      personalDurationOptionsDays: z.array(z.number().int().positive()).min(1).nullable().optional(),
+      personalInterestRatePercent: z.number().nonnegative().nullable().optional(),
+      personalServiceChargePercent: z.number().nonnegative().nullable().optional(),
     })
     .strict(),
 });

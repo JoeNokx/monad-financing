@@ -7,7 +7,13 @@ export async function getSystemSettings() {
   return prisma.systemSettings.upsert({
     where: { id: 'default' },
     update: {},
-    create: { id: 'default' },
+    create: {
+      id: 'default',
+      personalMinLoanAmount: new Prisma.Decimal(100),
+      personalDurationOptionsDays: [7, 14, 30],
+      personalInterestRatePercent: new Prisma.Decimal(15),
+      personalServiceChargePercent: new Prisma.Decimal(2.5),
+    },
   });
 }
 
@@ -22,6 +28,11 @@ export async function updateSystemSettings(input: {
 
   businessDefaultRepaymentFrequency?: string | null;
   businessDefaultTotalInstallments?: number | null;
+
+  personalMinLoanAmount?: number | null;
+  personalDurationOptionsDays?: number[] | null;
+  personalInterestRatePercent?: number | null;
+  personalServiceChargePercent?: number | null;
 }) {
   return prisma.systemSettings.upsert({
     where: { id: 'default' },
@@ -40,6 +51,26 @@ export async function updateSystemSettings(input: {
 
       businessDefaultRepaymentFrequency: input.businessDefaultRepaymentFrequency,
       businessDefaultTotalInstallments: input.businessDefaultTotalInstallments,
+
+      personalMinLoanAmount:
+        input.personalMinLoanAmount === undefined
+          ? undefined
+          : input.personalMinLoanAmount === null
+            ? null
+            : new Prisma.Decimal(input.personalMinLoanAmount),
+      personalDurationOptionsDays: input.personalDurationOptionsDays === undefined ? undefined : input.personalDurationOptionsDays === null ? Prisma.JsonNull : input.personalDurationOptionsDays,
+      personalInterestRatePercent:
+        input.personalInterestRatePercent === undefined
+          ? undefined
+          : input.personalInterestRatePercent === null
+            ? null
+            : new Prisma.Decimal(input.personalInterestRatePercent),
+      personalServiceChargePercent:
+        input.personalServiceChargePercent === undefined
+          ? undefined
+          : input.personalServiceChargePercent === null
+            ? null
+            : new Prisma.Decimal(input.personalServiceChargePercent),
     },
     create: {
       id: 'default',
@@ -58,6 +89,20 @@ export async function updateSystemSettings(input: {
 
       businessDefaultRepaymentFrequency: input.businessDefaultRepaymentFrequency ?? 'WEEKLY',
       businessDefaultTotalInstallments: input.businessDefaultTotalInstallments ?? null,
+
+      personalMinLoanAmount:
+        input.personalMinLoanAmount === null
+          ? null
+          : new Prisma.Decimal(input.personalMinLoanAmount === undefined ? 100 : input.personalMinLoanAmount),
+      personalDurationOptionsDays: input.personalDurationOptionsDays ?? [7, 14, 30],
+      personalInterestRatePercent:
+        input.personalInterestRatePercent === null
+          ? null
+          : new Prisma.Decimal(input.personalInterestRatePercent === undefined ? 15 : input.personalInterestRatePercent),
+      personalServiceChargePercent:
+        input.personalServiceChargePercent === null
+          ? null
+          : new Prisma.Decimal(input.personalServiceChargePercent === undefined ? 2.5 : input.personalServiceChargePercent),
     },
   });
 }

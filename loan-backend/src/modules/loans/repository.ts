@@ -20,6 +20,9 @@ export async function getLoanById(id: string) {
 export async function createLoanTx(args: {
   userId: string;
   loanType: string;
+  interestRatePercent: Prisma.Decimal;
+  serviceChargePercent: Prisma.Decimal;
+  serviceChargeAmount: Prisma.Decimal;
   durationDays: number;
   gracePeriodDays: number;
   penaltyPerDay?: Prisma.Decimal | null;
@@ -47,6 +50,11 @@ export async function createLoanTx(args: {
       data: {
         userId: args.userId,
         loanType: args.loanType,
+
+        interestRatePercent: args.interestRatePercent,
+        serviceChargePercent: args.serviceChargePercent,
+        serviceChargeAmount: args.serviceChargeAmount,
+
         duration: args.durationDays,
         gracePeriodDays: args.gracePeriodDays,
         gracePeriodEnd: args.gracePeriodEnd,

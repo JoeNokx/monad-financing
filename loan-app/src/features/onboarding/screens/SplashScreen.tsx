@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Text, View } from 'react-native';
 
 import { APP_NAME } from '../../../config/constants';
@@ -9,12 +9,16 @@ import { useSecurity } from '../../security/security.session';
 export default function SplashScreen() {
   const router = useRouter();
   const { hydrated, onboardingComplete } = useSecurity();
+  const lastTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!hydrated) return;
 
     const id = setTimeout(() => {
-      router.replace(onboardingComplete ? '/(app)' : '/onboarding');
+      const target = onboardingComplete ? '/(app)' : '/onboarding';
+      if (lastTargetRef.current === target) return;
+      lastTargetRef.current = target;
+      router.replace(target as any);
     }, 1200);
 
     return () => clearTimeout(id);

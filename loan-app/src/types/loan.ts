@@ -23,3 +23,26 @@ export type Loan = {
   completedAt?: string | null;
   createdAt: string;
 };
+
+export type LoanProduct = {
+  id: string;
+  displayName: string;
+  minAmount: number;
+  maxAmount: number;
+  availableAmount: number;
+  durationOptionsDays: number[];
+  interestRatePercent: number;
+  serviceChargePercent: number;
+};
+
+export type LoanQuote = {
+  loanType: string;
+  amount: number;
+  durationDays: number;
+  interestRatePercent: number;
+  serviceChargePercent: number;
+  principalAmount: number;
+  interestAmount: number;
+  serviceChargeAmount: number;
+  totalRepayment: number;
+};
