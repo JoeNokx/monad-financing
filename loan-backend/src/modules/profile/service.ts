@@ -2,6 +2,7 @@ import ApiError from '../../common/errors/ApiError';
 import prisma from '../../config/database';
 
 import { getProfileByClerkUserId, ProfilePatch, upsertProfileByClerkUserId } from './repository';
+import { applyReferralCodeToUser } from '../referrals/service';
 
 function isCompleteProfile(input: {
   profile: {
@@ -78,6 +79,10 @@ export async function getProfileForUser(args: { clerkUserId: string; userId: str
 export async function upsertProfileForUser(args: { clerkUserId: string; userId: string; patch: ProfilePatch }) {
   const existing = await getProfileByClerkUserId(args.clerkUserId);
   const user = await getUserForCompletion(args.userId);
+
+  if (args.patch.referralCode && args.patch.referralCode.trim().length > 0) {
+    await applyReferralCodeToUser({ userId: args.userId, referralCode: args.patch.referralCode });
+  }
 
   const merged = {
     fullName: args.patch.fullName ?? existing?.fullName ?? null,

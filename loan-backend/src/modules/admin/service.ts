@@ -15,6 +15,7 @@ import {
   updateSystemSettings,
 } from './repository';
 import type { SetUserRolesInput, UpdateSystemSettingsInput } from './types';
+import { adminListReferralRewards, adminSetReferralRewardStatus } from '../referrals/service';
 
 export async function readSettings() {
   return getSystemSettings();
@@ -63,4 +64,12 @@ export async function adminListNotifications(userId?: string) {
 export async function adminSendNotification(args: { userId?: string; type: string; message: string }) {
   if (!args.userId) return broadcastNotification({ type: args.type, message: args.message });
   return createNotification({ userId: args.userId, type: args.type, message: args.message });
+}
+
+export async function adminListReferrals() {
+  return adminListReferralRewards();
+}
+
+export async function adminSetReferralStatus(rewardId: string, status: 'PENDING' | 'PAID') {
+  return adminSetReferralRewardStatus({ rewardId, status });
 }

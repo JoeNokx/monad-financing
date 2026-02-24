@@ -116,7 +116,7 @@ export default function ProfileScreen() {
           icon="person-outline"
           color="bg-blue-50"
           title="Personal Information"
-          onPress={() => router.push({ pathname: '/(app)/placeholder', params: { title: 'Personal Information' } } as any)}
+          onPress={() => router.push('/(app)/personal-information')}
         />
         <MenuItem
           icon="trending-up-outline"
@@ -128,25 +128,25 @@ export default function ProfileScreen() {
           icon="shield-outline"
           color="bg-purple-50"
           title="Security Settings"
-          onPress={() => router.push({ pathname: '/(app)/placeholder', params: { title: 'Security Settings' } } as any)}
+          onPress={() => router.push('/(app)/security-settings')}
         />
         <MenuItem
           icon="card-outline"
           color="bg-emerald-50"
           title="Mobile Money"
-          onPress={() => router.push({ pathname: '/(app)/placeholder', params: { title: 'Mobile Money' } } as any)}
+          onPress={() => router.push('/(app)/mobile-money')}
         />
         <MenuItem
           icon="help-circle-outline"
           color="bg-orange-50"
           title="Help & Support"
-          onPress={() => router.push({ pathname: '/(app)/placeholder', params: { title: 'Help & Support' } } as any)}
+          onPress={() => router.push('/(app)/help-support')}
         />
         <MenuItem
           icon="document-text-outline"
           color="bg-gray-100"
           title="Terms & Privacy"
-          onPress={() => router.push({ pathname: '/(app)/placeholder', params: { title: 'Terms & Privacy' } } as any)}
+          onPress={() => router.push('/(app)/terms-privacy')}
         />
         <MenuItem icon="log-out-outline" color="bg-red-50" title="Log Out" danger onPress={() => void signOut()} />
       </View>

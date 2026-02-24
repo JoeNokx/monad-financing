@@ -7,6 +7,7 @@ import { addDays } from '../../utils/dateHelpers';
 
 import { createLoanTx, getLoanById, listLoansByUserId } from './repository';
 import type { ApplyLoanInput, LoanProduct, LoanQuote, LoanQuoteInput } from './types';
+import { maybeCreateReferralRewardOnLoan } from '../referrals/service';
 
 function isPersonal(loanType: string) {
   return loanType.toLowerCase().includes('personal');
@@ -283,6 +284,12 @@ export async function applyLoan(userId: string, input: ApplyLoanInput) {
       currentBusinessLoans: isBusiness(input.loanType) ? { increment: 1 } : undefined,
     },
   });
+
+  try {
+    await maybeCreateReferralRewardOnLoan({ userId, loanId: loan.id, loanType: loan.loanType });
+  } catch {
+    // Do not block loan creation on referral tracking.
+  }
 
   return loan;
 }

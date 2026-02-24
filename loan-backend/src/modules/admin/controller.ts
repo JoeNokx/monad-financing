@@ -8,7 +8,9 @@ import {
   adminListNotifications,
   adminListTransactions,
   adminListUsers,
+  adminListReferrals,
   adminSendNotification,
+  adminSetReferralStatus,
   adminSetKycStatus,
   adminSetLoanStatus,
   adminSetUserBlocked,
@@ -146,6 +148,27 @@ export const setUserRoles: RequestHandler = async (req, res, next) => {
     if (!result) throw new ApiError('User not found', { statusCode: 404, code: 'USER_NOT_FOUND' });
 
     res.json({ success: true, data: { roles: result } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const listReferralRewards: RequestHandler = async (_req, res, next) => {
+  try {
+    const data = await adminListReferrals();
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateReferralRewardStatus: RequestHandler = async (req, res, next) => {
+  try {
+    const rewardId = paramAsString((req.params as any).rewardId);
+    if (!rewardId) throw new ApiError('Invalid rewardId', { statusCode: 400, code: 'INVALID_REWARD_ID' });
+
+    const data = await adminSetReferralStatus(rewardId, req.body.status);
+    res.json({ success: true, data });
   } catch (err) {
     next(err);
   }

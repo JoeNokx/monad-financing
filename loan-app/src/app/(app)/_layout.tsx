@@ -180,11 +180,23 @@ function ClerkGatedTabs() {
       <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
       <Tabs.Screen name="about" options={{ href: null }} />
       <Tabs.Screen name="placeholder" options={{ href: null }} />
+      <Tabs.Screen name="faqs" options={{ href: null }} />
+      <Tabs.Screen name="loan-details" options={{ href: null }} />
       <Tabs.Screen name="request-loan" options={{ href: null }} />
       <Tabs.Screen name="quick-personal-loan" options={{ href: null }} />
       <Tabs.Screen name="request-personal-loan" options={{ href: null }} />
       <Tabs.Screen name="review-confirm-loan" options={{ href: null }} />
       <Tabs.Screen name="loan-processing" options={{ href: null }} />
+      <Tabs.Screen name="personal-information" options={{ href: null }} />
+      <Tabs.Screen name="security-settings" options={{ href: null }} />
+      <Tabs.Screen name="mobile-money" options={{ href: null }} />
+      <Tabs.Screen name="change-password" options={{ href: null }} />
+      <Tabs.Screen name="change-pin" options={{ href: null }} />
+      <Tabs.Screen name="confirm-change-pin" options={{ href: null }} />
+      <Tabs.Screen name="help-support" options={{ href: null }} />
+      <Tabs.Screen name="repay-loan" options={{ href: null }} />
+      <Tabs.Screen name="payment-history" options={{ href: null }} />
+      <Tabs.Screen name="terms-privacy" options={{ href: null }} />
     </Tabs>
   );
 }
@@ -223,11 +235,23 @@ function FallbackTabs() {
       <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
       <Tabs.Screen name="about" options={{ href: null }} />
       <Tabs.Screen name="placeholder" options={{ href: null }} />
+      <Tabs.Screen name="faqs" options={{ href: null }} />
+      <Tabs.Screen name="loan-details" options={{ href: null }} />
       <Tabs.Screen name="request-loan" options={{ href: null }} />
       <Tabs.Screen name="quick-personal-loan" options={{ href: null }} />
       <Tabs.Screen name="request-personal-loan" options={{ href: null }} />
       <Tabs.Screen name="review-confirm-loan" options={{ href: null }} />
       <Tabs.Screen name="loan-processing" options={{ href: null }} />
+      <Tabs.Screen name="personal-information" options={{ href: null }} />
+      <Tabs.Screen name="security-settings" options={{ href: null }} />
+      <Tabs.Screen name="mobile-money" options={{ href: null }} />
+      <Tabs.Screen name="change-password" options={{ href: null }} />
+      <Tabs.Screen name="change-pin" options={{ href: null }} />
+      <Tabs.Screen name="confirm-change-pin" options={{ href: null }} />
+      <Tabs.Screen name="help-support" options={{ href: null }} />
+      <Tabs.Screen name="repay-loan" options={{ href: null }} />
+      <Tabs.Screen name="payment-history" options={{ href: null }} />
+      <Tabs.Screen name="terms-privacy" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -67,6 +67,17 @@ export const setKycStatusSchema = z.object({
   }),
 });
 
+export const setReferralRewardStatusSchema = z.object({
+  body: z
+    .object({
+      status: z.enum(['PENDING', 'PAID']),
+    })
+    .strict(),
+  params: z.object({
+    rewardId: z.string().uuid(),
+  }),
+});
+
 export const createNotificationSchema = z.object({
   body: z
     .object({

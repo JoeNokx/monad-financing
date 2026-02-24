@@ -147,12 +147,20 @@ export default function LoansScreen() {
                 <View className="h-4" />
 
                 <View className="flex-row gap-3">
-                  <Pressable className="flex-1 rounded-full border border-gray-200 bg-white py-3">
+                  <Pressable
+                    onPress={() => router.push(`/(app)/loan-details?loanId=${encodeURIComponent(String(loan.id))}` as any)}
+                    className="flex-1 rounded-full border border-gray-200 bg-white py-3"
+                    accessibilityRole="button"
+                  >
                     <Text className="text-center font-semibold text-gray-700">View Details</Text>
                   </Pressable>
 
                   {loan.status === 'ACTIVE' ? (
-                    <Pressable className="flex-1 rounded-full bg-purple-600 py-3">
+                    <Pressable
+                      onPress={() => router.push(`/(app)/repay-loan?loanId=${encodeURIComponent(String(loan.id))}` as any)}
+                      className="flex-1 rounded-full bg-purple-600 py-3"
+                      accessibilityRole="button"
+                    >
                       <Text className="text-center font-semibold text-white">Make Payment</Text>
                     </Pressable>
                   ) : null}

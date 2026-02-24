@@ -11,9 +11,11 @@ import {
   listAllNotifications,
   listKyc,
   listLoans,
+  listReferralRewards,
   listTransactions,
   listUsers,
   setUserRoles,
+  updateReferralRewardStatus,
   updateKycStatus,
   updateLoanStatus,
   updateSettings,
@@ -23,6 +25,7 @@ import {
   createNotificationSchema,
   setKycStatusSchema,
   setLoanStatusSchema,
+  setReferralRewardStatusSchema,
   setUserBlockedSchema,
   setUserRolesSchema,
   updateSystemSettingsSchema,
@@ -46,6 +49,15 @@ router.get('/kyc', authenticate, authorize(adminRoles), listKyc);
 router.patch('/kyc/:userId/status', authenticate, authorize(adminRoles), validateRequest(setKycStatusSchema), updateKycStatus);
 
 router.get('/transactions', authenticate, authorize(adminRoles), listTransactions);
+
+router.get('/referrals/rewards', authenticate, authorize(adminRoles), listReferralRewards);
+router.patch(
+  '/referrals/rewards/:rewardId/status',
+  authenticate,
+  authorize(adminRoles),
+  validateRequest(setReferralRewardStatusSchema),
+  updateReferralRewardStatus,
+);
 
 router.get('/notifications', authenticate, authorize(adminRoles), listAllNotifications);
 router.post('/notifications', authenticate, authorize(adminRoles), validateRequest(createNotificationSchema), createAdminNotification);

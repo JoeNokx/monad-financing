@@ -6,6 +6,7 @@ export type User = {
   fullName?: string | null;
   isBlocked: boolean;
   creditScore: number;
+  referralCode?: string | null;
   maxPersonalLoans: number;
   currentPersonalLoans: number;
   maxBusinessLoans: number;

@@ -8,6 +8,7 @@ declare module 'express-serve-static-core' {
       id: string;
       clerkId: string;
       email: string;
+      referralCode?: string | null;
     };
     currentUserRoles?: string[];
   }

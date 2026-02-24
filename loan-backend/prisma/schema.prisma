@@ -4,7 +4,6 @@
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -33,6 +32,11 @@ enum TransactionStatus {
   FAILED
 }
 
+enum ReferralRewardStatus {
+  PENDING
+  PAID
+}
+
 enum LedgerDirection {
   DEBIT
   CREDIT
@@ -47,39 +51,69 @@ enum LedgerEntryType {
 }
 
 model User {
-  id          String   @id @default(uuid())
-  clerkId     String   @unique
-  email       String   @unique
-  phone       String?  @unique
-  fullName    String?
-  isBlocked   Boolean  @default(false)
-  creditScore Int      @default(0)
-  maxPersonalLoans     Int     @default(2)
-  currentPersonalLoans Int     @default(0)
-  maxBusinessLoans     Int     @default(1)
-  currentBusinessLoans Int     @default(0)
-  loanLimit            Decimal @default(1000)
-  originalLoanLimit    Decimal @default(1000)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                   String   @id @default(uuid())
+  clerkId              String   @unique
+  email                String   @unique
+  phone                String?  @unique
+  fullName             String?
+  isBlocked            Boolean  @default(false)
+  creditScore          Int      @default(0)
+  referralCode         String?  @unique
+  referredByUserId     String?
+  maxPersonalLoans     Int      @default(2)
+  currentPersonalLoans Int      @default(0)
+  maxBusinessLoans     Int      @default(1)
+  currentBusinessLoans Int      @default(0)
+  loanLimit            Decimal  @default(1000)
+  originalLoanLimit    Decimal  @default(1000)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  loans         Loan[]
-  ledgerEntries LedgerEntry[]
-  kyc           KYCVerification?
-  pin           UserPin?
-  roles         UserRole[]
-  transactions  Transaction[]
-  notifications Notification[]
+  loans             Loan[]
+  ledgerEntries     LedgerEntry[]
+  kyc               KYCVerification?
+  pin               UserPin?
+  roles             UserRole[]
+  transactions      Transaction[]
+  notifications     Notification[]
   loanGrowthHistory LoanGrowthHistory[]
+
+  referredBy    User?  @relation("UserReferrals", fields: [referredByUserId], references: [id])
+  referredUsers User[] @relation("UserReferrals")
+
+  referralRewardsAsReferrer ReferralReward[] @relation("ReferralReferrer")
+  referralRewardAsReferred  ReferralReward?  @relation("ReferralReferred")
 
   @@index([clerkId])
   @@index([createdAt])
   @@map("users")
 }
 
+model ReferralReward {
+  id             String               @id @default(uuid())
+  referrerUserId String
+  referredUserId String               @unique
+  loanId         String               @unique
+  loanType       String
+  rewardAmount   Decimal
+  status         ReferralRewardStatus @default(PENDING)
+  paidAt         DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  referrer User @relation("ReferralReferrer", fields: [referrerUserId], references: [id])
+  referred User @relation("ReferralReferred", fields: [referredUserId], references: [id])
+  loan     Loan @relation(fields: [loanId], references: [id])
+
+  @@index([referrerUserId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("referral_rewards")
+}
+
 model Role {
-  id    String @id @default(uuid())
-  name  String @unique
+  id    String     @id @default(uuid())
+  name  String     @unique
   users UserRole[]
 
   @@map("roles")
@@ -121,36 +155,38 @@ model Loan {
   userId   String
   loanType String
 
+  referralReward ReferralReward?
+
   interestRatePercent  Decimal @default(0)
   serviceChargePercent Decimal @default(0)
   serviceChargeAmount  Decimal @default(0)
 
-  duration         Int?
-  gracePeriodDays  Int?      @default(3)
-  gracePeriodEnd   DateTime?
-  penaltyPerDay    Decimal?
-  maxPenalty       Decimal?
-  currentPenalty   Decimal   @default(0)
+  duration        Int?
+  gracePeriodDays Int?      @default(3)
+  gracePeriodEnd  DateTime?
+  penaltyPerDay   Decimal?
+  maxPenalty      Decimal?
+  currentPenalty  Decimal   @default(0)
 
   repaymentFrequency String?
   totalInstallments  Int?
-  paidInstallments   Int      @default(0)
+  paidInstallments   Int     @default(0)
 
   originalAmount   Decimal
   interestAmount   Decimal
   totalRepayment   Decimal
-  amountPaid       Decimal   @default(0)
+  amountPaid       Decimal    @default(0)
   remainingBalance Decimal
   status           LoanStatus
   dueDate          DateTime
   completedAt      DateTime?
-  createdAt        DateTime  @default(now())
+  createdAt        DateTime   @default(now())
 
-  user           User              @relation(fields: [userId], references: [id])
-  installments   LoanInstallment[]
-  transactions   Transaction[]
-  ledgerEntries  LedgerEntry[]
-  penaltyHistory PenaltyHistory[]
+  user              User                @relation(fields: [userId], references: [id])
+  installments      LoanInstallment[]
+  transactions      Transaction[]
+  ledgerEntries     LedgerEntry[]
+  penaltyHistory    PenaltyHistory[]
   loanGrowthHistory LoanGrowthHistory[]
 
   @@index([userId])
@@ -194,12 +230,12 @@ model PenaltyHistory {
 }
 
 model LoanInstallment {
-  id     String   @id @default(uuid())
-  loanId String
-  amount Decimal
+  id      String    @id @default(uuid())
+  loanId  String
+  amount  Decimal
   dueDate DateTime
-  isPaid Boolean  @default(false)
-  paidAt DateTime?
+  isPaid  Boolean   @default(false)
+  paidAt  DateTime?
 
   loan Loan @relation(fields: [loanId], references: [id])
 
@@ -322,7 +358,7 @@ model SystemSettings {
   businessDefaultTotalInstallments  Int?
 
   personalMinLoanAmount        Decimal? // GH₵ floor for personal loans
-  personalDurationOptionsDays  Json @default([7,14,30]) // number[] e.g. [7,14,30]
+  personalDurationOptionsDays  Json     @default("[7,14,30]") // number[] e.g. [7,14,30]
   personalInterestRatePercent  Decimal? // override (otherwise defaultInterestRatePercent)
   personalServiceChargePercent Decimal? // applied on principal
 
@@ -333,25 +369,25 @@ model SystemSettings {
 }
 
 model Profile {
-  id                     String   @id @default(cuid())
-  clerkUserId            String   @unique
-  isComplete             Boolean  @default(false)
+  id          String  @id @default(cuid())
+  clerkUserId String  @unique
+  isComplete  Boolean @default(false)
 
-  fullName               String?
-  phoneNumber            String?
-  referralCode           String?
-  dateOfBirth            DateTime?
-  gender                 String?
-  address                String?
-  emergencyName          String?
-  emergencyPhone         String?
-  emergencyRelationship  String?
-  mobileNetwork          String?
-  mobileNumber           String?
-  mobileName             String?
+  fullName              String?
+  phoneNumber           String?
+  referralCode          String?
+  dateOfBirth           DateTime?
+  gender                String?
+  address               String?
+  emergencyName         String?
+  emergencyPhone        String?
+  emergencyRelationship String?
+  mobileNetwork         String?
+  mobileNumber          String?
+  mobileName            String?
 
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([clerkUserId])
   @@index([isComplete])

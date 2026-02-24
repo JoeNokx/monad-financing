@@ -1,11 +1,32 @@
 import type { RequestHandler } from 'express';
 import { clerkClient, getAuth } from '@clerk/express';
+import crypto from 'crypto';
 
 import prisma from '../config/database';
 import ApiError from '../common/errors/ApiError';
 import logger from '../common/logger/logger';
 import { env } from '../config/env';
 import { ROLES } from '../constants/roles';
+
+function generateReferralCode(length = 10) {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = crypto.randomBytes(length);
+  let out = '';
+  for (let i = 0; i < length; i++) {
+    out += alphabet[bytes[i] % alphabet.length];
+  }
+  return out;
+}
+
+async function generateUniqueReferralCode() {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const code = generateReferralCode(10);
+    const existing = await prisma.user.findFirst({ where: { referralCode: code }, select: { id: true } });
+    if (!existing) return code;
+  }
+
+  return `${generateReferralCode(8)}${Date.now().toString(36).toUpperCase().slice(-2)}`;
+}
 
 function unauthorized() {
   return new ApiError('Unauthorized', {
@@ -70,9 +91,17 @@ function logMissingUserId(req: Parameters<RequestHandler>[0], auth: ReturnType<t
 async function getOrCreateUserForClerkId(clerkId: string) {
   const existing = await prisma.user.findUnique({
     where: { clerkId },
-    select: { id: true, clerkId: true, email: true },
+    select: { id: true, clerkId: true, email: true, referralCode: true },
   });
-  if (existing) return existing;
+  if (existing) {
+    if (!existing.referralCode) {
+      const referralCode = await generateUniqueReferralCode();
+      await prisma.user.update({ where: { id: existing.id }, data: { referralCode } });
+      return { ...existing, referralCode };
+    }
+
+    return existing;
+  }
 
   const clerkUser = await clerkClient.users.getUser(clerkId);
 
@@ -83,14 +112,17 @@ async function getOrCreateUserForClerkId(clerkId: string) {
 
   const fullName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || undefined;
 
+  const referralCode = await generateUniqueReferralCode();
+
   const created = await prisma.user.create({
     data: {
       clerkId,
       email,
       ...(phone ? { phone } : {}),
       fullName,
+      referralCode,
     },
-    select: { id: true, clerkId: true, email: true },
+    select: { id: true, clerkId: true, email: true, referralCode: true },
   });
 
   await ensureUserHasRole(created.id, ROLES.USER);
