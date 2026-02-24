@@ -4,13 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { Button } from '../../../components/ui/Button';
-import { useApiClient } from '../../../hooks/useApiClient';
-import { useQuery } from '../../../hooks/useQuery';
 import { formatGhs, daysUntil, toNumber } from '../../../utils/format';
-import type { ApiEnvelope } from '../../../types/api';
 import type { Loan } from '../../../types/loan';
-
-type LoansResponse = ApiEnvelope<Loan[]>;
+import { useSecurity } from '../../security/security.session';
 
 type TabKey = 'active' | 'history';
 
@@ -31,14 +27,10 @@ function loanTypeLabel(loanType: string) {
 
 export default function LoansScreen() {
   const router = useRouter();
-  const api = useApiClient();
   const [tab, setTab] = useState<TabKey>('active');
 
-  const { data, error, loading, refetch } = useQuery(async () => {
-    return api.request<LoansResponse>({ path: '/api/loans' });
-  }, [api]);
-
-  const loans = data?.data ?? [];
+  const { appData } = useSecurity();
+  const loans: Loan[] = appData?.loans ?? [];
 
   const activeLoans = useMemo(() => loans.filter((l) => l.status === 'ACTIVE'), [loans]);
   const historyLoans = useMemo(() => loans.filter((l) => l.status === 'COMPLETED'), [loans]);
@@ -96,20 +88,8 @@ export default function LoansScreen() {
 
       <View className="h-4" />
 
-      {loading ? <Text className="text-gray-500">Loading...</Text> : null}
-      {error ? (
-        <View className="rounded-2xl border border-red-100 bg-red-50 p-4">
-          <Text className="font-semibold text-red-700">Unable to load loans</Text>
-          <View className="h-1" />
-          <Text className="text-red-600">{error}</Text>
-          <View className="h-4" />
-          <Button title="Retry" onPress={refetch} />
-        </View>
-      ) : null}
-
-      {!loading && !error ? (
-        <View className="gap-4">
-          {(tab === 'active' ? activeLoans : historyLoans).map((loan) => {
+      <View className="gap-4">
+        {(tab === 'active' ? activeLoans : historyLoans).map((loan) => {
             const daysLeft = daysUntil(loan.dueDate);
             const statusLabel = loan.status === 'COMPLETED' ? 'Completed' : loan.status;
 
@@ -197,7 +177,6 @@ export default function LoansScreen() {
             )
           ) : null}
         </View>
-      ) : null}
     </ScrollView>
   );
 }

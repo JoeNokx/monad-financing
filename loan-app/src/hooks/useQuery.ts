@@ -18,7 +18,7 @@ export function useQuery<T>(fn: () => Promise<T>, deps: any[]) {
     let cancelled = false;
 
     async function run() {
-      setState({ data: null, error: null, loading: true });
+      setState((prev) => ({ data: prev.data, error: null, loading: true }));
       try {
         const data = await fn();
         if (!cancelled) setState({ data, error: null, loading: false });

@@ -6,9 +6,8 @@ import { Pressable, Text, View } from 'react-native';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
+import { useSecurity } from '../../features/security/security.session';
 import { useApiClient } from '../../hooks/useApiClient';
-import { useQuery } from '../../hooks/useQuery';
-import type { ApiEnvelope } from '../../types/api';
 import type { LoanProduct, LoanQuote } from '../../types/loan';
 import { formatGhs } from '../../utils/format';
 
@@ -27,18 +26,15 @@ export default function RequestPersonalLoanScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const api = useApiClient();
+  const { appData } = useSecurity();
 
   const loanTypeRaw = getParam(params.loanType);
   const loanType = typeof loanTypeRaw === 'string' && loanTypeRaw.trim().length > 0 ? loanTypeRaw : 'PERSONAL';
 
-  const productsQuery = useQuery(async () => {
-    return api.request<ApiEnvelope<LoanProduct[]>>({ path: '/api/loans/products' });
-  }, [api]);
-
   const product = useMemo(() => {
-    const products = productsQuery.data?.data ?? [];
+    const products = appData?.products ?? [];
     return products.find((p) => p.id === loanType) ?? null;
-  }, [productsQuery.data, loanType]);
+  }, [appData, loanType]);
 
   const [amountText, setAmountText] = useState('');
   const amount = useMemo(() => parseMoney(amountText), [amountText]);
@@ -110,6 +106,32 @@ export default function RequestPersonalLoanScreen() {
   const minAmount = product?.minAmount ?? 0;
   const maxAmount = product?.availableAmount ?? product?.maxAmount ?? 0;
 
+  const optimisticQuote = useMemo<LoanQuote | null>(() => {
+    if (!product) return null;
+    if (!durationDays || amount <= 0) return null;
+
+    const interestRatePercent = product.interestRatePercent ?? 0;
+    const serviceChargePercent = product.serviceChargePercent ?? 0;
+    const principalAmount = amount;
+    const interestAmount = (principalAmount * interestRatePercent) / 100;
+    const serviceChargeAmount = (principalAmount * serviceChargePercent) / 100;
+    const totalRepayment = principalAmount + interestAmount + serviceChargeAmount;
+
+    return {
+      loanType,
+      amount: principalAmount,
+      durationDays,
+      interestRatePercent,
+      serviceChargePercent,
+      principalAmount,
+      interestAmount,
+      serviceChargeAmount,
+      totalRepayment,
+    };
+  }, [amount, durationDays, loanType, product]);
+
+  const displayQuote = quote ?? optimisticQuote;
+
   const amountValid = amount > 0 && (minAmount <= 0 || amount >= minAmount) && (maxAmount <= 0 || amount <= maxAmount);
   const durationValid = Boolean(durationDays);
 
@@ -127,20 +149,7 @@ export default function RequestPersonalLoanScreen() {
       </View>
 
       <View className="h-6" />
-
-      {productsQuery.loading ? <Text className="text-gray-500">Loading...</Text> : null}
-
-      {productsQuery.error ? (
-        <View className="rounded-2xl border border-red-100 bg-red-50 p-4">
-          <Text className="font-semibold text-red-700">Unable to load loan config</Text>
-          <View className="h-1" />
-          <Text className="text-red-600">{productsQuery.error}</Text>
-          <View className="h-4" />
-          <Button title="Retry" onPress={productsQuery.refetch} />
-        </View>
-      ) : null}
-
-      {!productsQuery.loading && !productsQuery.error && !product ? (
+      {!product ? (
         <View className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
           <Text className="text-base font-semibold text-gray-900">Loan type not available</Text>
           <View className="h-1" />
@@ -209,28 +218,28 @@ export default function RequestPersonalLoanScreen() {
             <Text className="text-base font-semibold text-gray-900">Loan Breakdown</Text>
             <View className="h-3" />
 
-            {quoteLoading ? <Text className="text-gray-500">Calculating...</Text> : null}
+            {quoteLoading && !optimisticQuote ? <Text className="text-gray-500">Calculating...</Text> : null}
             {quoteError ? <Text className="text-red-600">{quoteError}</Text> : null}
 
-            {quote ? (
+            {displayQuote ? (
               <View className="gap-2">
                 <View className="flex-row items-center justify-between">
                   <Text className="text-gray-600">Loan amount</Text>
-                  <Text className="font-semibold text-gray-900">{formatGhs(quote.principalAmount)}</Text>
+                  <Text className="font-semibold text-gray-900">{formatGhs(displayQuote.principalAmount)}</Text>
                 </View>
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-gray-600">Interest ({quote.interestRatePercent}%)</Text>
-                  <Text className="font-semibold text-gray-900">{formatGhs(quote.interestAmount)}</Text>
+                  <Text className="text-gray-600">Interest ({displayQuote.interestRatePercent}%)</Text>
+                  <Text className="font-semibold text-gray-900">{formatGhs(displayQuote.interestAmount)}</Text>
                 </View>
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-gray-600">Service charge ({quote.serviceChargePercent}%)</Text>
-                  <Text className="font-semibold text-gray-900">{formatGhs(quote.serviceChargeAmount)}</Text>
+                  <Text className="text-gray-600">Service charge ({displayQuote.serviceChargePercent}%)</Text>
+                  <Text className="font-semibold text-gray-900">{formatGhs(displayQuote.serviceChargeAmount)}</Text>
                 </View>
 
                 <View className="h-2" />
                 <View className="flex-row items-center justify-between">
                   <Text className="text-base font-semibold text-gray-900">Total to repay</Text>
-                  <Text className="text-base font-semibold text-gray-900">{formatGhs(quote.totalRepayment)}</Text>
+                  <Text className="text-base font-semibold text-gray-900">{formatGhs(displayQuote.totalRepayment)}</Text>
                 </View>
               </View>
             ) : (
@@ -243,9 +252,16 @@ export default function RequestPersonalLoanScreen() {
             disabled={!canContinue}
             onPress={() => {
               if (!durationDays) return;
+              if (!quote) return;
               router.push(
                 `/(app)/review-confirm-loan?loanType=${encodeURIComponent(loanType)}&amount=${encodeURIComponent(String(amount))}&durationDays=${encodeURIComponent(
                   String(durationDays),
+                )}&principalAmount=${encodeURIComponent(String(quote.principalAmount))}&interestRatePercent=${encodeURIComponent(
+                  String(quote.interestRatePercent),
+                )}&serviceChargePercent=${encodeURIComponent(String(quote.serviceChargePercent))}&interestAmount=${encodeURIComponent(
+                  String(quote.interestAmount),
+                )}&serviceChargeAmount=${encodeURIComponent(String(quote.serviceChargeAmount))}&totalRepayment=${encodeURIComponent(
+                  String(quote.totalRepayment),
                 )}` as any,
               );
             }}

@@ -4,6 +4,7 @@ import { Alert, Text, View } from 'react-native';
 
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
+import { useSecurity } from '../../security/security.session';
 import { useApiClient } from '../../../hooks/useApiClient';
 import type { ApiEnvelope } from '../../../types/api';
 import type { ProfileMeResponse, ProfileUpsertPatch } from '../../../types/profile';
@@ -30,9 +31,12 @@ export default function SetupEmergencyScreen() {
   const router = useRouter();
   const api = useApiClient();
 
-  const [emergencyName, setEmergencyName] = useState('');
-  const [emergencyPhone, setEmergencyPhone] = useState('');
-  const [emergencyRelationship, setEmergencyRelationship] = useState('');
+  const { appData, setAppData } = useSecurity();
+  const existing = appData?.profileMe.profile;
+
+  const [emergencyName, setEmergencyName] = useState(() => existing?.emergencyName ?? '');
+  const [emergencyPhone, setEmergencyPhone] = useState(() => existing?.emergencyPhone ?? '');
+  const [emergencyRelationship, setEmergencyRelationship] = useState(() => existing?.emergencyRelationship ?? '');
   const [submitting, setSubmitting] = useState(false);
 
   const canContinue = useMemo(() => {
@@ -65,7 +69,12 @@ export default function SetupEmergencyScreen() {
                 emergencyRelationship: emergencyRelationship.trim(),
               };
 
-              await api.request<ApiEnvelope<ProfileMeResponse>>({ method: 'PUT', path: '/api/profile/me', body: patch });
+              const res = await api.request<ApiEnvelope<ProfileMeResponse>>({ method: 'PUT', path: '/api/profile/me', body: patch });
+
+              setAppData((prev) => {
+                if (!prev) return prev;
+                return { ...prev, profileMe: res.data };
+              });
 
               router.push('/(setup)/mobile-money');
             } catch (e: any) {

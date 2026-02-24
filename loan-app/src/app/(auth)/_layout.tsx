@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 
 import { env } from '../../config/env';
 import { useSecurity } from '../../features/security/security.session';
+import { AppSkeleton } from '../../components/ui/AppSkeleton';
 import { AuthNavigator } from '../../navigation/AuthNavigator';
 
 export default function AuthLayout() {
@@ -12,7 +13,7 @@ export default function AuthLayout() {
   const { isLoaded, isSignedIn } = useAuth();
   const { hydrated, onboardingComplete, hasPin, locked } = useSecurity();
 
-  if (!hydrated || !isLoaded) return null;
+  if (!hydrated || !isLoaded) return <AppSkeleton />;
 
   const target = (() => {
     if (!env.clerkPublishableKey) return '/(app)';
@@ -31,7 +32,7 @@ export default function AuthLayout() {
   }, [router, target]);
 
   if (target && !target.startsWith('/(auth)/')) {
-    return null;
+    return <AppSkeleton />;
   }
 
   return <AuthNavigator />;

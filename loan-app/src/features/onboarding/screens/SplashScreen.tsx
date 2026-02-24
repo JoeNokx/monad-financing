@@ -14,14 +14,10 @@ export default function SplashScreen() {
   useEffect(() => {
     if (!hydrated) return;
 
-    const id = setTimeout(() => {
-      const target = onboardingComplete ? '/(app)' : '/onboarding';
-      if (lastTargetRef.current === target) return;
-      lastTargetRef.current = target;
-      router.replace(target as any);
-    }, 1200);
-
-    return () => clearTimeout(id);
+    const target = onboardingComplete ? '/(app)' : '/onboarding';
+    if (lastTargetRef.current === target) return;
+    lastTargetRef.current = target;
+    router.replace(target as any);
   }, [hydrated, onboardingComplete, router]);
 
   return (

@@ -1,7 +1,19 @@
 import { AppState, AppStateStatus } from 'react-native';
-import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, Dispatch, PropsWithChildren, SetStateAction, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { getSecureItem, setSecureItem } from '../../services/secure.storage';
+import type { KycStatusResponse } from '../../types/kyc';
+import type { Loan, LoanProduct } from '../../types/loan';
+import type { ProfileMeResponse } from '../../types/profile';
+import type { User } from '../../types/user';
+
+export type AppData = {
+  profileMe: ProfileMeResponse;
+  me: User;
+  kyc: KycStatusResponse;
+  loans: Loan[];
+  products: LoanProduct[];
+};
 
 type SecurityValue = {
   hydrated: boolean;
@@ -9,7 +21,11 @@ type SecurityValue = {
   hasPin: boolean;
   locked: boolean;
   pendingPin: string | null;
+  appData: AppData | null;
+  appDataRefreshNonce: number;
   syncClerkSessionId: (sessionId: string | null) => void;
+  setAppData: Dispatch<SetStateAction<AppData | null>>;
+  refreshAppData: () => void;
   setOnboardingComplete: () => Promise<void>;
   lock: () => void;
   unlock: () => void;
@@ -30,6 +46,8 @@ export function SecurityProvider({ children }: PropsWithChildren) {
   const [hasPin, setHasPin] = useState(false);
   const [locked, setLocked] = useState(false);
   const [pendingPin, setPendingPin] = useState<string | null>(null);
+  const [appData, setAppData] = useState<AppData | null>(null);
+  const [appDataRefreshNonce, setAppDataRefreshNonce] = useState(0);
 
   const backgroundAtRef = useRef<number | null>(null);
   const clerkSessionIdRef = useRef<string | null>(null);
@@ -104,6 +122,10 @@ export function SecurityProvider({ children }: PropsWithChildren) {
     [hasPin],
   );
 
+  const refreshAppData = useCallback(() => {
+    setAppDataRefreshNonce((n) => n + 1);
+  }, []);
+
   const unlock = useCallback(() => {
     setLocked(false);
   }, []);
@@ -138,7 +160,11 @@ export function SecurityProvider({ children }: PropsWithChildren) {
       hasPin,
       locked,
       pendingPin,
+      appData,
+      appDataRefreshNonce,
       syncClerkSessionId,
+      setAppData,
+      refreshAppData,
       setOnboardingComplete,
       lock,
       unlock,
@@ -153,7 +179,10 @@ export function SecurityProvider({ children }: PropsWithChildren) {
       hasPin,
       locked,
       pendingPin,
+      appData,
+      appDataRefreshNonce,
       syncClerkSessionId,
+      refreshAppData,
       setOnboardingComplete,
       lock,
       unlock,

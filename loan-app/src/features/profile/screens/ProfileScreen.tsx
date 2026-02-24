@@ -4,12 +4,8 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { APP_NAME } from '../../../config/constants';
 import { useClerk } from '@clerk/clerk-expo';
-import { useApiClient } from '../../../hooks/useApiClient';
-import { useQuery } from '../../../hooks/useQuery';
-import type { ApiEnvelope } from '../../../types/api';
-import type { KycStatusResponse } from '../../../types/kyc';
-import type { User } from '../../../types/user';
 import { initials } from '../../../utils/format';
+import { useSecurity } from '../../security/security.session';
 
 function scoreLabel(score: number) {
   if (score >= 750) return 'Excellent';
@@ -40,19 +36,11 @@ function MenuItem(props: { icon: any; color: string; title: string; onPress?: ()
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const api = useApiClient();
   const { signOut } = useClerk();
+  const { appData } = useSecurity();
 
-  const meQuery = useQuery(async () => {
-    return api.request<ApiEnvelope<User>>({ path: '/api/users/me' });
-  }, [api]);
-
-  const kycQuery = useQuery(async () => {
-    return api.request<ApiEnvelope<KycStatusResponse>>({ path: '/api/kyc/status' });
-  }, [api]);
-
-  const me = meQuery.data?.data;
-  const kyc = kycQuery.data?.data;
+  const me = appData?.me;
+  const kyc = appData?.kyc;
 
   const isVerified = kyc?.status === 'APPROVED';
 
@@ -60,66 +48,68 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView className="flex-1 bg-gray-50" contentContainerClassName="px-5 pb-10 pt-8">
-      {meQuery.loading ? <Text className="text-gray-500">Loading...</Text> : null}
-      {meQuery.error ? <Text className="text-red-600">{meQuery.error}</Text> : null}
+      <View className="flex-row items-center gap-4">
+        <View className="h-16 w-16 items-center justify-center rounded-full bg-blue-700">
+          <Text className="text-2xl font-semibold text-white">{initials(me?.fullName)}</Text>
+        </View>
 
-      {me ? (
-        <>
-          <View className="flex-row items-center gap-4">
-            <View className="h-16 w-16 items-center justify-center rounded-full bg-blue-700">
-              <Text className="text-2xl font-semibold text-white">{initials(me.fullName)}</Text>
+        <View className="flex-1">
+          <Text className="text-xl font-semibold text-gray-900">{me?.fullName ?? 'User'}</Text>
+
+          <View className="h-2" />
+
+          <Text className="text-gray-600">{me?.phone ?? ''}</Text>
+
+          <View className="h-2" />
+
+          {isVerified ? (
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+              <Text className="font-semibold text-emerald-600">Verified Account</Text>
             </View>
-            <View className="flex-1">
-              <Text className="text-xl font-semibold text-gray-900">{me.fullName ?? 'User'}</Text>
-              <Text className="text-gray-600">{me.phone}</Text>
-              <View className="h-1" />
-              {isVerified ? (
-                <View className="flex-row items-center gap-2">
-                  <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-                  <Text className="font-semibold text-emerald-600">Verified Account</Text>
-                </View>
-              ) : null}
-            </View>
+          ) : (
+            <View className="h-5" />
+          )}
+        </View>
+      </View>
+
+      <View className="h-5" />
+
+      <View className="rounded-2xl border border-gray-100 bg-white p-5">
+        <Text className="text-sm text-gray-500">Credit Score</Text>
+        <View className="h-2" />
+        <View className="flex-row items-end justify-between">
+          <Text className="text-3xl font-semibold text-emerald-600">
+            {creditScore} <Text className="text-base font-semibold text-gray-500">/ 850</Text>
+          </Text>
+
+          <View className="rounded-full bg-emerald-50 px-3 py-1">
+            <Text className="text-xs font-semibold text-emerald-700">{scoreLabel(creditScore)}</Text>
           </View>
+        </View>
+      </View>
 
-          <View className="h-5" />
+      <View className="h-4" />
 
-          <View className="rounded-2xl border border-gray-100 bg-white p-5">
-            <Text className="text-sm text-gray-500">Credit Score</Text>
-            <View className="h-2" />
-            <View className="flex-row items-end justify-between">
-              <Text className="text-3xl font-semibold text-emerald-600">
-                {creditScore} <Text className="text-base font-semibold text-gray-500">/ 850</Text>
-              </Text>
-              <View className="rounded-full bg-emerald-50 px-3 py-1">
-                <Text className="text-xs font-semibold text-emerald-700">{scoreLabel(creditScore)}</Text>
-              </View>
-            </View>
+      <View className="rounded-2xl border border-yellow-200 bg-yellow-50 p-5">
+        <View className="flex-row items-center gap-3">
+          <View className="h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
+            <Ionicons name="shield-checkmark" size={22} color="#B45309" />
           </View>
-
-          <View className="h-4" />
-
-          <View className="rounded-2xl border border-yellow-200 bg-yellow-50 p-5">
-            <View className="flex-row items-center gap-3">
-              <View className="h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
-                <Ionicons name="shield-checkmark" size={22} color="#B45309" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-base font-semibold text-gray-900">KYC Verification</Text>
-                <View className="h-1" />
-                <View className="flex-row items-center gap-2">
-                  <Ionicons name="time" size={14} color="#B45309" />
-                  <Text className="font-semibold text-amber-700">{kycTitle(kyc?.status ?? 'PENDING')}</Text>
-                </View>
-                <View className="h-1" />
-                <Text className="text-gray-600">We’re reviewing your documents (24-48 hours)</Text>
-              </View>
+          <View className="flex-1">
+            <Text className="text-base font-semibold text-gray-900">KYC Verification</Text>
+            <View className="h-1" />
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="time" size={14} color="#B45309" />
+              <Text className="font-semibold text-amber-700">{kyc ? kycTitle(kyc.status) : ''}</Text>
             </View>
+            <View className="h-1" />
+            <Text className="text-gray-600">We’re reviewing your documents (24-48 hours)</Text>
           </View>
+        </View>
+      </View>
 
-          <View className="h-5" />
-        </>
-      ) : null}
+      <View className="h-5" />
 
       <View className="gap-3">
         <MenuItem

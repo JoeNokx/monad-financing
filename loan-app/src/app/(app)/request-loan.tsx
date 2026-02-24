@@ -4,21 +4,14 @@ import { Pressable, Text, View } from 'react-native';
 
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { useApiClient } from '../../hooks/useApiClient';
-import { useQuery } from '../../hooks/useQuery';
-import type { ApiEnvelope } from '../../types/api';
 import type { LoanProduct } from '../../types/loan';
 import { formatGhs } from '../../utils/format';
+import { useSecurity } from '../../features/security/security.session';
 
 export default function RequestLoanScreen() {
   const router = useRouter();
-  const api = useApiClient();
-
-  const { data, error, loading, refetch } = useQuery(async () => {
-    return api.request<ApiEnvelope<LoanProduct[]>>({ path: '/api/loans/products' });
-  }, [api]);
-
-  const products = data?.data ?? [];
+  const { appData } = useSecurity();
+  const products: LoanProduct[] = appData?.products ?? [];
 
   function goToProduct(product: LoanProduct) {
     if (product.id.toLowerCase().includes('personal')) {
@@ -40,21 +33,8 @@ export default function RequestLoanScreen() {
 
       <View className="h-6" />
 
-      {loading ? <Text className="text-gray-500">Loading loan options...</Text> : null}
-
-      {error ? (
-        <View className="rounded-2xl border border-red-100 bg-red-50 p-4">
-          <Text className="font-semibold text-red-700">Unable to load loan options</Text>
-          <View className="h-1" />
-          <Text className="text-red-600">{error}</Text>
-          <View className="h-4" />
-          <Button title="Retry" onPress={refetch} />
-        </View>
-      ) : null}
-
-      {!loading && !error ? (
-        <View className="gap-4">
-          {products.map((p) => {
+      <View className="gap-4">
+        {products.map((p) => {
             const subtitle = `${formatGhs(p.availableAmount)} available`;
             return (
               <Pressable key={p.id} onPress={() => goToProduct(p)} accessibilityRole="button">
@@ -78,15 +58,14 @@ export default function RequestLoanScreen() {
             );
           })}
 
-          {products.length === 0 ? (
-            <View className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
-              <Text className="text-base font-semibold text-gray-900">No loan products available</Text>
-              <View className="h-1" />
-              <Text className="text-gray-600">Ask an admin to configure loan plans in system settings.</Text>
-            </View>
-          ) : null}
-        </View>
-      ) : null}
+        {products.length === 0 ? (
+          <View className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
+            <Text className="text-base font-semibold text-gray-900">No loan products available</Text>
+            <View className="h-1" />
+            <Text className="text-gray-600">Ask an admin to configure loan plans in system settings.</Text>
+          </View>
+        ) : null}
+      </View>
 
       <View className="flex-1" />
       <Button title="Back" onPress={() => router.back()} />

@@ -4,6 +4,7 @@ import { Alert, Pressable, Text, View } from 'react-native';
 
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
+import { useSecurity } from '../../security/security.session';
 import { useApiClient } from '../../../hooks/useApiClient';
 import type { ApiEnvelope } from '../../../types/api';
 import type { ProfileMeResponse, ProfileUpsertPatch } from '../../../types/profile';
@@ -30,9 +31,12 @@ export default function SetupMobileMoneyScreen() {
   const router = useRouter();
   const api = useApiClient();
 
-  const [mobileNetwork, setMobileNetwork] = useState<'MTN' | 'Telecel' | 'AirtelTigo' | ''>('');
-  const [mobileNumber, setMobileNumber] = useState('');
-  const [mobileName, setMobileName] = useState('');
+  const { appData, setAppData } = useSecurity();
+  const existing = appData?.profileMe.profile;
+
+  const [mobileNetwork, setMobileNetwork] = useState<'MTN' | 'Telecel' | 'AirtelTigo' | ''>(() => (existing?.mobileNetwork as any) ?? '');
+  const [mobileNumber, setMobileNumber] = useState(() => existing?.mobileNumber ?? '');
+  const [mobileName, setMobileName] = useState(() => existing?.mobileName ?? '');
   const [submitting, setSubmitting] = useState(false);
 
   const canFinish = useMemo(() => {
@@ -83,6 +87,11 @@ export default function SetupMobileMoneyScreen() {
               };
 
               const res = await api.request<ApiEnvelope<ProfileMeResponse>>({ method: 'PUT', path: '/api/profile/me', body: patch });
+
+              setAppData((prev) => {
+                if (!prev) return prev;
+                return { ...prev, profileMe: res.data };
+              });
 
               if (!res.data.isComplete) {
                 Alert.alert('Setup', 'Please complete all required fields.');

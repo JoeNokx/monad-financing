@@ -4,6 +4,7 @@ import { Alert, Pressable, Text, View } from 'react-native';
 
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
+import { useSecurity } from '../../security/security.session';
 import { useApiClient } from '../../../hooks/useApiClient';
 import type { ApiEnvelope } from '../../../types/api';
 import type { ProfileMeResponse, ProfileUpsertPatch } from '../../../types/profile';
@@ -30,12 +31,15 @@ export default function SetupAboutScreen() {
   const router = useRouter();
   const api = useApiClient();
 
-  const [fullName, setFullName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
-  const [gender, setGender] = useState<'male' | 'female' | 'other' | ''>('');
-  const [address, setAddress] = useState('');
-  const [referralCode, setReferralCode] = useState('');
+  const { appData, setAppData } = useSecurity();
+  const existing = appData?.profileMe.profile;
+
+  const [fullName, setFullName] = useState(() => existing?.fullName ?? '');
+  const [phoneNumber, setPhoneNumber] = useState(() => existing?.phoneNumber ?? '');
+  const [dateOfBirth, setDateOfBirth] = useState(() => existing?.dateOfBirth ?? '');
+  const [gender, setGender] = useState<'male' | 'female' | 'other' | ''>(() => (existing?.gender as any) ?? '');
+  const [address, setAddress] = useState(() => existing?.address ?? '');
+  const [referralCode, setReferralCode] = useState(() => existing?.referralCode ?? '');
   const [submitting, setSubmitting] = useState(false);
 
   const canContinue = useMemo(() => {
@@ -96,6 +100,11 @@ export default function SetupAboutScreen() {
                 method: 'PUT',
                 path: '/api/profile/me',
                 body: patch,
+              });
+
+              setAppData((prev) => {
+                if (!prev) return prev;
+                return { ...prev, profileMe: res.data };
               });
 
               if (!res.data.profile) {

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import { env } from '../../config/env';
 import { useSecurity } from '../../features/security/security.session';
+import { AppSkeleton } from '../../components/ui/AppSkeleton';
 
 export default function SetupLayout() {
   const router = useRouter();
@@ -32,8 +33,8 @@ export default function SetupLayout() {
     router.replace(navTarget as any);
   }, [router, navTarget]);
 
-  if (!hydrated || !isLoaded) return null;
-  if (navTarget) return null;
+  if (!hydrated || !isLoaded) return <AppSkeleton />;
+  if (navTarget) return <AppSkeleton />;
 
   return <Stack screenOptions={{ headerShown: false }} />;
 }

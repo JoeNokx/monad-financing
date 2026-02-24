@@ -4,15 +4,12 @@ import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { Button } from '../../../components/ui/Button';
 import { APP_NAME } from '../../../config/constants';
-import { useApiClient } from '../../../hooks/useApiClient';
-import { useQuery } from '../../../hooks/useQuery';
-import type { ApiEnvelope } from '../../../types/api';
-import type { User } from '../../../types/user';
+import { useSecurity } from '../../security/security.session';
 import { initials } from '../../../utils/format';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const api = useApiClient();
+  const { appData } = useSecurity();
 
   const openWhatsApp = async () => {
     const phone = '233546022758';
@@ -27,11 +24,7 @@ export default function HomeScreen() {
     }
   };
 
-  const meQuery = useQuery(async () => {
-    return api.request<ApiEnvelope<User>>({ path: '/api/users/me' });
-  }, [api]);
-
-  const me = meQuery.data?.data;
+  const me = appData?.me;
   const displayName = me?.fullName ?? me?.email ?? '';
   const firstName = displayName.trim().length > 0 ? displayName.trim().split(' ')[0] : '';
 
@@ -43,11 +36,17 @@ export default function HomeScreen() {
           className="flex-row items-center gap-3"
           accessibilityRole="button"
         >
-          <View className="h-12 w-12 items-center justify-center rounded-full bg-purple-600">
-            <Text className="text-base font-semibold text-white">{initials(displayName) || 'U'}</Text>
-          </View>
+          {me ? (
+            <View className="h-12 w-12 items-center justify-center rounded-full bg-purple-600">
+              <Text className="text-base font-semibold text-white">{initials(displayName) || 'U'}</Text>
+            </View>
+          ) : (
+            <View className="h-12 w-12 rounded-full bg-gray-200" />
+          )}
+
           <View>
-            <Text className="text-lg font-semibold text-gray-900">Hi {meQuery.loading ? '' : firstName ? `${firstName},` : ''}</Text>
+            <Text className="text-lg font-semibold text-gray-900">Hi {firstName ? `${firstName},` : ''}</Text>
+            <View className="h-1" />
             <Text className="text-sm text-gray-500">Welcome back to {APP_NAME},</Text>
           </View>
         </Pressable>
@@ -60,12 +59,6 @@ export default function HomeScreen() {
           <Ionicons name="notifications-outline" size={22} color="#6B7280" />
         </Pressable>
       </View>
-
-      {meQuery.error ? (
-        <View className="mt-3 rounded-2xl bg-red-50 p-3">
-          <Text className="text-sm font-semibold text-red-700">{meQuery.error}</Text>
-        </View>
-      ) : null}
 
       <View className="h-6" />
 

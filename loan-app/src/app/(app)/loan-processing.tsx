@@ -5,6 +5,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { useSecurity } from '../../features/security/security.session';
 import { useApiClient } from '../../hooks/useApiClient';
 import type { ApiEnvelope } from '../../types/api';
 import type { Loan, LoanQuote } from '../../types/loan';
@@ -29,6 +30,7 @@ export default function LoanProcessingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const api = useApiClient();
+  const { setAppData } = useSecurity();
 
   const loanTypeRaw = getParam(params.loanType);
   const loanType = typeof loanTypeRaw === 'string' && loanTypeRaw.trim().length > 0 ? loanTypeRaw : 'PERSONAL';
@@ -36,7 +38,31 @@ export default function LoanProcessingScreen() {
   const amount = toNumber(params.amount);
   const durationDays = Math.floor(toNumber(params.durationDays));
 
-  const [quote, setQuote] = useState<LoanQuote | null>(null);
+  const initialQuote = useMemo<LoanQuote | null>(() => {
+    const principalAmount = toNumber(params.principalAmount);
+    const interestRatePercent = toNumber(params.interestRatePercent);
+    const serviceChargePercent = toNumber(params.serviceChargePercent);
+    const interestAmount = toNumber(params.interestAmount);
+    const serviceChargeAmount = toNumber(params.serviceChargeAmount);
+    const totalRepayment = toNumber(params.totalRepayment);
+
+    if (principalAmount <= 0 || durationDays <= 0) return null;
+    if (totalRepayment <= 0) return null;
+
+    return {
+      loanType,
+      amount,
+      durationDays,
+      interestRatePercent,
+      serviceChargePercent,
+      principalAmount,
+      interestAmount,
+      serviceChargeAmount,
+      totalRepayment,
+    };
+  }, [params, loanType, amount, durationDays]);
+
+  const [quote, setQuote] = useState<LoanQuote | null>(initialQuote);
   const [loan, setLoan] = useState<Loan | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stage, setStage] = useState<'quoting' | 'submitting' | 'done'>('quoting');
@@ -48,7 +74,6 @@ export default function LoanProcessingScreen() {
   async function run() {
     setError(null);
     setLoan(null);
-    setQuote(null);
 
     try {
       setStage('quoting');
@@ -71,6 +96,14 @@ export default function LoanProcessingScreen() {
       });
 
       setLoan(applyRes.data);
+
+      setAppData((prev) => {
+        if (!prev) return prev;
+        const existing = prev.loans ?? [];
+        if (existing.some((l) => l.id === applyRes.data.id)) return prev;
+        return { ...prev, loans: [applyRes.data, ...existing] };
+      });
+
       setStage('done');
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Unable to submit loan';
@@ -110,36 +143,34 @@ export default function LoanProcessingScreen() {
         </Card>
       ) : null}
 
-      {quote ? (
-        <View>
-          <View className="h-4" />
-          <Card className="rounded-2xl border-gray-100 p-5">
-            <Text className="text-base font-semibold text-gray-900">Final Breakdown</Text>
-            <View className="h-3" />
-            <View className="flex-row items-center justify-between">
-              <Text className="text-gray-600">Loan amount</Text>
-              <Text className="font-semibold text-gray-900">{formatGhs(quote.principalAmount)}</Text>
-            </View>
-            <View className="h-2" />
-            <View className="flex-row items-center justify-between">
-              <Text className="text-gray-600">Interest ({quote.interestRatePercent}%)</Text>
-              <Text className="font-semibold text-gray-900">{formatGhs(quote.interestAmount)}</Text>
-            </View>
-            <View className="h-2" />
-            <View className="flex-row items-center justify-between">
-              <Text className="text-gray-600">Service charge ({quote.serviceChargePercent}%)</Text>
-              <Text className="font-semibold text-gray-900">{formatGhs(quote.serviceChargeAmount)}</Text>
-            </View>
-            <View className="h-3" />
-            <View className="h-px bg-gray-100" />
-            <View className="h-3" />
-            <View className="flex-row items-center justify-between">
-              <Text className="text-base font-semibold text-gray-900">Total to repay</Text>
-              <Text className="text-base font-semibold text-gray-900">{formatGhs(quote.totalRepayment)}</Text>
-            </View>
-          </Card>
-        </View>
-      ) : null}
+      <View>
+        <View className="h-4" />
+        <Card className="rounded-2xl border-gray-100 p-5">
+          <Text className="text-base font-semibold text-gray-900">Final Breakdown</Text>
+          <View className="h-3" />
+          <View className="flex-row items-center justify-between">
+            <Text className="text-gray-600">Loan amount</Text>
+            <Text className="font-semibold text-gray-900">{quote ? formatGhs(quote.principalAmount) : '-'}</Text>
+          </View>
+          <View className="h-2" />
+          <View className="flex-row items-center justify-between">
+            <Text className="text-gray-600">Interest{quote ? ` (${quote.interestRatePercent}%)` : ''}</Text>
+            <Text className="font-semibold text-gray-900">{quote ? formatGhs(quote.interestAmount) : '-'}</Text>
+          </View>
+          <View className="h-2" />
+          <View className="flex-row items-center justify-between">
+            <Text className="text-gray-600">Service charge{quote ? ` (${quote.serviceChargePercent}%)` : ''}</Text>
+            <Text className="font-semibold text-gray-900">{quote ? formatGhs(quote.serviceChargeAmount) : '-'}</Text>
+          </View>
+          <View className="h-3" />
+          <View className="h-px bg-gray-100" />
+          <View className="h-3" />
+          <View className="flex-row items-center justify-between">
+            <Text className="text-base font-semibold text-gray-900">Total to repay</Text>
+            <Text className="text-base font-semibold text-gray-900">{quote ? formatGhs(quote.totalRepayment) : '-'}</Text>
+          </View>
+        </Card>
+      </View>
 
       {error ? (
         <View>

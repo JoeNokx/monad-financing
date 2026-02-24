@@ -1,16 +1,19 @@
 import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { env } from '../../config/env';
 import { Button } from '../../components/ui/Button';
+import { AppSkeleton } from '../../components/ui/AppSkeleton';
 import { useSecurity } from '../../features/security/security.session';
 import { useApiClient } from '../../hooks/useApiClient';
-import { useQuery } from '../../hooks/useQuery';
 import type { ApiEnvelope } from '../../types/api';
 import type { ProfileMeResponse } from '../../types/profile';
+import type { KycStatusResponse } from '../../types/kyc';
+import type { Loan, LoanProduct } from '../../types/loan';
+import type { User } from '../../types/user';
 
 export default function AppLayout() {
   if (!env.clerkPublishableKey) {
@@ -23,24 +26,78 @@ export default function AppLayout() {
 function ClerkGatedTabs() {
   const router = useRouter();
   const lastTargetRef = useRef<string | null>(null);
+  const lastLoadedNonceRef = useRef<number | null>(null);
   const { isLoaded, isSignedIn, sessionId } = useAuth();
-  const { hydrated, onboardingComplete, hasPin, locked, syncClerkSessionId } = useSecurity();
+  const { hydrated, onboardingComplete, hasPin, locked, syncClerkSessionId, appData, setAppData, refreshAppData, appDataRefreshNonce } = useSecurity();
   const api = useApiClient();
 
-  const profileQuery = useQuery(
-    async () => {
-      if (!hydrated || !onboardingComplete || !isSignedIn || !hasPin || locked) {
-        return null;
-      }
-      return api.request<ApiEnvelope<ProfileMeResponse>>({ path: '/api/profile/me' });
-    },
-    [api, hydrated, onboardingComplete, isSignedIn, hasPin, locked],
-  );
+  const [preloadLoading, setPreloadLoading] = useState(false);
+  const [preloadError, setPreloadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!hydrated) return;
     syncClerkSessionId(sessionId ?? null);
   }, [hydrated, sessionId, syncClerkSessionId]);
+
+  useEffect(() => {
+    if (!hydrated || !isLoaded || !onboardingComplete || !isSignedIn || !hasPin) {
+      setPreloadError(null);
+      setPreloadLoading(false);
+      setAppData(null);
+      lastLoadedNonceRef.current = null;
+      return;
+    }
+
+    if (locked) {
+      setPreloadError(null);
+      setPreloadLoading(false);
+      return;
+    }
+
+    const alreadyLoaded = Boolean(appData) && lastLoadedNonceRef.current === appDataRefreshNonce;
+    if (alreadyLoaded) return;
+
+    let cancelled = false;
+
+    async function preload() {
+      setPreloadLoading(true);
+      setPreloadError(null);
+
+      try {
+        const [profileRes, meRes, kycRes, loansRes, productsRes] = await Promise.all([
+          api.request<ApiEnvelope<ProfileMeResponse>>({ path: '/api/profile/me' }),
+          api.request<ApiEnvelope<User>>({ path: '/api/users/me' }),
+          api.request<ApiEnvelope<KycStatusResponse>>({ path: '/api/kyc/status' }),
+          api.request<ApiEnvelope<Loan[]>>({ path: '/api/loans' }),
+          api.request<ApiEnvelope<LoanProduct[]>>({ path: '/api/loans/products' }),
+        ]);
+
+        if (cancelled) return;
+
+        setAppData({
+          profileMe: profileRes.data,
+          me: meRes.data,
+          kyc: kycRes.data,
+          loans: loansRes.data,
+          products: productsRes.data,
+        });
+        lastLoadedNonceRef.current = appDataRefreshNonce;
+        setPreloadLoading(false);
+      } catch (e) {
+        if (cancelled) return;
+        setAppData(null);
+        lastLoadedNonceRef.current = null;
+        setPreloadLoading(false);
+        setPreloadError(e instanceof Error ? e.message : 'Unable to load app data');
+      }
+    }
+
+    void preload();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, hydrated, isLoaded, onboardingComplete, isSignedIn, hasPin, locked, appData, appDataRefreshNonce, setAppData]);
 
   const navTarget = useMemo(() => {
     if (!hydrated || !isLoaded) return null;
@@ -49,10 +106,11 @@ function ClerkGatedTabs() {
     if (!isSignedIn) return '/(auth)/sign-in';
     if (!hasPin) return '/(auth)/create-pin';
     if (locked) return '/(auth)/pin-login';
-    if (profileQuery.data && !profileQuery.data.data.isComplete) return '/(setup)';
+
+    if (appData && !appData.profileMe.isComplete) return '/(setup)';
 
     return null;
-  }, [hydrated, isLoaded, onboardingComplete, isSignedIn, hasPin, locked, profileQuery.data]);
+  }, [hydrated, isLoaded, onboardingComplete, isSignedIn, hasPin, locked, appData]);
 
   useEffect(() => {
     if (!navTarget) {
@@ -66,23 +124,27 @@ function ClerkGatedTabs() {
   }, [router, navTarget]);
 
   if (!hydrated || !isLoaded) {
-    return null;
+    return <AppSkeleton />;
   }
 
   if (navTarget) {
-    return null;
+    return <AppSkeleton />;
   }
 
-  if (profileQuery.error) {
+  if (preloadError) {
     return (
       <View className="flex-1 items-center justify-center bg-white px-6">
-        <Text className="text-base font-semibold text-gray-900">Unable to load profile</Text>
+        <Text className="text-base font-semibold text-gray-900">Unable to load app data</Text>
         <View className="h-2" />
-        <Text className="text-center text-gray-600">{profileQuery.error}</Text>
+        <Text className="text-center text-gray-600">{preloadError}</Text>
         <View className="h-6" />
-        <Button title="Retry" onPress={profileQuery.refetch} />
+        <Button title="Retry" onPress={refreshAppData} />
       </View>
     );
+  }
+
+  if (preloadLoading || !appData) {
+    return <AppSkeleton />;
   }
 
   return (
