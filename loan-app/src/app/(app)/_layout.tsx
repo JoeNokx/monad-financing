@@ -197,6 +197,7 @@ function ClerkGatedTabs() {
       <Tabs.Screen name="repay-loan" options={{ href: null }} />
       <Tabs.Screen name="payment-history" options={{ href: null }} />
       <Tabs.Screen name="terms-privacy" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
     </Tabs>
   );
 }
@@ -252,6 +253,7 @@ function FallbackTabs() {
       <Tabs.Screen name="repay-loan" options={{ href: null }} />
       <Tabs.Screen name="payment-history" options={{ href: null }} />
       <Tabs.Screen name="terms-privacy" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
     </Tabs>
   );
 }

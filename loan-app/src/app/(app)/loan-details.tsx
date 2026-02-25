@@ -145,9 +145,10 @@ export default function LoanDetailsScreen() {
         <InfoRow label="Disbursed On" value={formatDateLabel(disbursedOn)} />
       </Card>
 
+      <View className="h-8" />
+
       {loan.status === 'ACTIVE' ? (
         <>
-          <View className="h-8" />
           <Pressable
             className="rounded-full bg-purple-600 py-4"
             accessibilityRole="button"
@@ -155,18 +156,17 @@ export default function LoanDetailsScreen() {
           >
             <Text className="text-center text-base font-semibold text-white">Make Repayment</Text>
           </Pressable>
-
           <View className="h-3" />
-
-          <Pressable
-            className="rounded-full border border-gray-200 bg-white py-4"
-            accessibilityRole="button"
-            onPress={() => router.push(`/(app)/payment-history?loanId=${encodeURIComponent(String(loan.id))}` as any)}
-          >
-            <Text className="text-center text-base font-semibold text-gray-700">View Payment History</Text>
-          </Pressable>
         </>
       ) : null}
+
+      <Pressable
+        className="rounded-full border border-gray-200 bg-white py-4"
+        accessibilityRole="button"
+        onPress={() => router.push(`/(app)/payment-history?loanId=${encodeURIComponent(String(loan.id))}` as any)}
+      >
+        <Text className="text-center text-base font-semibold text-gray-700">View Payment History</Text>
+      </Pressable>
     </ScrollView>
   );
 }

@@ -1,15 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Animated, Linking, Modal, Pressable, ScrollView, Share, Text, View } from 'react-native';
 
 import { Button } from '../../../components/ui/Button';
 import { APP_NAME } from '../../../config/constants';
 import { useApiClient } from '../../../hooks/useApiClient';
 import type { ApiEnvelope } from '../../../types/api';
+import type { Loan } from '../../../types/loan';
+import type { Notification } from '../../../types/notification';
+import type { Transaction } from '../../../types/transaction';
+import { getSecureItem } from '../../../services/secure.storage';
 import { useSecurity } from '../../security/security.session';
 import { initials } from '../../../utils/format';
+import { daysUntil, toNumber } from '../../../utils/format';
 
 type ReferralSummary = {
   referralCode: string | null;
@@ -21,12 +26,127 @@ type ReferralSummary = {
 export default function HomeScreen() {
   const router = useRouter();
   const api = useApiClient();
-  const { appData } = useSecurity();
+  const { appData, appDataRefreshNonce } = useSecurity();
+
+  const userId = appData?.me?.id ?? 'anonymous';
+  const readKey = `notifications_read_v1_${userId}`;
+
+  const [apiNotifs, setApiNotifs] = useState<Notification[]>([]);
+  const [txs, setTxs] = useState<Transaction[]>([]);
+  const [readIds, setReadIds] = useState<Record<string, true>>({});
 
   const [inviteMounted, setInviteMounted] = useState(false);
   const translateY = useRef(new Animated.Value(700)).current;
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteData, setInviteData] = useState<ReferralSummary | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const raw = await getSecureItem(readKey);
+        const parsed = raw ? (JSON.parse(raw) as string[]) : [];
+        const next: Record<string, true> = {};
+        for (const id of parsed ?? []) next[String(id)] = true;
+        if (!cancelled) setReadIds(next);
+      } catch {
+        if (!cancelled) setReadIds({});
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [readKey, appDataRefreshNonce]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const [nRes, tRes] = await Promise.all([
+          api.request<ApiEnvelope<Notification[]>>({ path: '/api/notifications' }),
+          api.request<ApiEnvelope<Transaction[]>>({ path: '/api/transactions' }),
+        ]);
+
+        if (cancelled) return;
+        setApiNotifs(Array.isArray(nRes.data) ? nRes.data : []);
+        setTxs(Array.isArray(tRes.data) ? tRes.data : []);
+      } catch {
+        if (!cancelled) {
+          setApiNotifs([]);
+          setTxs([]);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, appDataRefreshNonce]);
+
+  const unreadCount = useMemo(() => {
+    const unreadById = new Map<string, boolean>();
+
+    for (const n of apiNotifs) {
+      const id = `api_${n.id}`;
+      const isUnread = !n.isRead && !readIds[id];
+      unreadById.set(id, isUnread);
+    }
+
+    const loans: Loan[] = appData?.loans ?? [];
+    const kyc = appData?.kyc;
+
+    for (const loan of loans) {
+      if (loan.status === 'ACTIVE') {
+        const baseId = `loan_approved_${loan.id}`;
+        unreadById.set(baseId, (unreadById.get(baseId) ?? false) || !readIds[baseId]);
+
+        const days = daysUntil(loan.dueDate);
+        if (days === 3) {
+          const id = `payment_due_soon_${loan.id}`;
+          unreadById.set(id, (unreadById.get(id) ?? false) || !readIds[id]);
+        }
+        if (days < 0 && toNumber(loan.remainingBalance) > 0) {
+          const id = `payment_overdue_${loan.id}`;
+          unreadById.set(id, (unreadById.get(id) ?? false) || !readIds[id]);
+        }
+      }
+
+      if (loan.status === 'COMPLETED') {
+        const id = `loan_repaid_${loan.id}`;
+        unreadById.set(id, (unreadById.get(id) ?? false) || !readIds[id]);
+      }
+    }
+
+    for (const t of txs) {
+      const status = String((t as any).status ?? '').toUpperCase();
+      if (status !== 'SUCCESS') continue;
+      const id = `payment_received_${t.id}`;
+      unreadById.set(id, (unreadById.get(id) ?? false) || !readIds[id]);
+    }
+
+    if (kyc) {
+      if (kyc.status === 'APPROVED') {
+        const id = 'kyc_verified';
+        unreadById.set(id, (unreadById.get(id) ?? false) || !readIds[id]);
+      }
+      if (kyc.status === 'PENDING' && (kyc as any).hasSubmission) {
+        const id = 'kyc_under_review';
+        unreadById.set(id, (unreadById.get(id) ?? false) || !readIds[id]);
+      }
+      if (kyc.status === 'REJECTED') {
+        const id = 'kyc_rejected';
+        unreadById.set(id, (unreadById.get(id) ?? false) || !readIds[id]);
+      }
+    }
+
+    let count = 0;
+    for (const isUnread of unreadById.values()) {
+      if (isUnread) count += 1;
+    }
+    return count;
+  }, [apiNotifs, appData?.kyc, appData?.loans, readIds, txs]);
 
   const inviteSnapshot = useMemo(() => {
     return (
@@ -112,11 +232,16 @@ export default function HomeScreen() {
         </Pressable>
 
         <Pressable
-          onPress={() => {}}
-          className="h-12 w-12 items-center justify-center rounded-full bg-white"
+          onPress={() => router.push('/(app)/notifications')}
+          className="relative h-12 w-12 items-center justify-center rounded-full bg-white"
           accessibilityRole="button"
         >
           <Ionicons name="notifications-outline" size={22} color="#6B7280" />
+          {unreadCount > 0 ? (
+            <View className="absolute -right-1 -top-1 h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1">
+              <Text className="text-[10px] font-semibold text-white">{unreadCount > 99 ? '99+' : String(unreadCount)}</Text>
+            </View>
+          ) : null}
         </Pressable>
       </View>
 
