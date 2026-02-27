@@ -7,13 +7,22 @@ import { ROLES } from '../src/constants/roles';
 
 const prisma = new PrismaClient();
 
+function requireSeedEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required env var: ${name}`);
+  }
+  return value;
+}
+
 async function main() {
   console.log('Seeding admin user...');
 
-  const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? 'admin@monad.com';
-  const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'Admin@123456';
-  const ADMIN_PHONE = process.env.SEED_ADMIN_PHONE ?? '+233123456789';
-  const ADMIN_NAME = process.env.SEED_ADMIN_NAME ?? 'Super Admin';
+  const ADMIN_EMAIL = requireSeedEnv('SEED_ADMIN_EMAIL');
+  const ADMIN_PASSWORD = requireSeedEnv('SEED_ADMIN_PASSWORD');
+  const ADMIN_PHONE = process.env.SEED_ADMIN_PHONE;
+  const ADMIN_NAME = requireSeedEnv('SEED_ADMIN_NAME');
+  const ADMIN_USERNAME = requireSeedEnv('SEED_ADMIN_USERNAME');
 
   let clerkUser: any;
 
@@ -29,6 +38,7 @@ async function main() {
         password: ADMIN_PASSWORD,
         firstName: ADMIN_NAME.split(' ')[0],
         lastName: ADMIN_NAME.split(' ').slice(1).join(' ') || undefined,
+        username: ADMIN_USERNAME,
         publicMetadata: { role: ROLES.ADMIN },
       });
 
@@ -49,13 +59,13 @@ async function main() {
     where: { clerkId: clerkUser.id },
     update: {
       email: ADMIN_EMAIL,
-      phone: ADMIN_PHONE,
+      ...(ADMIN_PHONE ? { phone: ADMIN_PHONE } : {}),
       fullName: ADMIN_NAME,
     },
     create: {
       clerkId: clerkUser.id,
       email: ADMIN_EMAIL,
-      phone: ADMIN_PHONE,
+      ...(ADMIN_PHONE ? { phone: ADMIN_PHONE } : {}),
       fullName: ADMIN_NAME,
       creditScore: 0,
       isBlocked: false,

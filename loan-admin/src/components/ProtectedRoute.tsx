@@ -12,9 +12,6 @@ import type { ApiEnvelope } from '../types/api';
 export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   const { isSignedIn, isLoaded } = useAuth();
 
-  if (!isLoaded) return <div>Loading...</div>;
-  if (!isSignedIn) return <Navigate to="/login" replace />;
-
   const sessionQuery = useQuery({
     queryKey: ['auth', 'session'],
     enabled: isLoaded && isSignedIn,
@@ -28,6 +25,9 @@ export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
       return res.data.data;
     },
   });
+
+  if (!isLoaded) return <div>Loading...</div>;
+  if (!isSignedIn) return <Navigate to="/login" replace />;
 
   if (sessionQuery.isLoading) {
     return (
