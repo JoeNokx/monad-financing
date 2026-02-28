@@ -7,6 +7,7 @@ import authorize from '../../middleware/authorize';
 import validateRequest from '../../middleware/validateRequest';
 import {
   createAdminNotification,
+  deleteKyc,
   getSettings,
   listAllNotifications,
   listKyc,
@@ -23,6 +24,7 @@ import {
 } from './controller';
 import {
   createNotificationSchema,
+  deleteKycSchema,
   setKycStatusSchema,
   setLoanStatusSchema,
   setReferralRewardStatusSchema,
@@ -47,6 +49,7 @@ router.patch('/loans/:loanId/status', authenticate, authorize(adminRoles), valid
 
 router.get('/kyc', authenticate, authorize(adminRoles), listKyc);
 router.patch('/kyc/:userId/status', authenticate, authorize(adminRoles), validateRequest(setKycStatusSchema), updateKycStatus);
+router.delete('/kyc/:userId', authenticate, authorize(adminRoles), validateRequest(deleteKycSchema), deleteKyc);
 
 router.get('/transactions', authenticate, authorize(adminRoles), listTransactions);
 

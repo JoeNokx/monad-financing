@@ -37,6 +37,9 @@ export default function LoanProcessingScreen() {
 
   const amount = toNumber(params.amount);
   const durationDays = Math.floor(toNumber(params.durationDays));
+  const repaymentFrequency = typeof params.repaymentFrequency === 'string' ? params.repaymentFrequency : undefined;
+  const totalInstallmentsRaw = typeof params.totalInstallments === 'string' ? params.totalInstallments : Array.isArray(params.totalInstallments) ? params.totalInstallments[0] : undefined;
+  const totalInstallments = totalInstallmentsRaw ? Math.floor(toNumber(totalInstallmentsRaw)) : undefined;
 
   const initialQuote = useMemo<LoanQuote | null>(() => {
     const principalAmount = toNumber(params.principalAmount);
@@ -92,6 +95,8 @@ export default function LoanProcessingScreen() {
           loanType,
           amount,
           durationDays,
+          ...(repaymentFrequency ? { repaymentFrequency } : {}),
+          ...(totalInstallments && totalInstallments > 0 ? { totalInstallments } : {}),
         },
       });
 

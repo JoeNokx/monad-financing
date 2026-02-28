@@ -1,7 +1,7 @@
-
 import {
   broadcastNotification,
   createNotification,
+  deleteKycSubmission,
   getSystemSettings,
   listAllLoans,
   listAllTransactions,
@@ -51,6 +51,10 @@ export async function adminListKyc() {
 
 export async function adminSetKycStatus(userId: string, status: 'PENDING' | 'APPROVED' | 'REJECTED') {
   return setKycStatus({ userId, status });
+}
+
+export async function adminDeleteKyc(userId: string) {
+  return deleteKycSubmission({ userId });
 }
 
 export async function adminListTransactions() {

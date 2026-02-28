@@ -248,6 +248,12 @@ function ClerkGatedTabs() {
         <Tabs.Screen name="request-loan" options={{ href: null }} />
         <Tabs.Screen name="quick-personal-loan" options={{ href: null }} />
         <Tabs.Screen name="request-personal-loan" options={{ href: null }} />
+        <Tabs.Screen name="business-loan" options={{ href: null }} />
+        <Tabs.Screen name="business-details" options={{ href: null }} />
+        <Tabs.Screen name="upload-documents" options={{ href: null }} />
+        <Tabs.Screen name="business-loan-request" options={{ href: null }} />
+        <Tabs.Screen name="repayment-schedule" options={{ href: null }} />
+        <Tabs.Screen name="disbursement-account" options={{ href: null }} />
         <Tabs.Screen name="review-confirm-loan" options={{ href: null }} />
         <Tabs.Screen name="loan-processing" options={{ href: null }} />
         <Tabs.Screen name="personal-information" options={{ href: null }} />

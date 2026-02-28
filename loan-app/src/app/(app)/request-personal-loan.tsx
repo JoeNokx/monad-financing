@@ -30,6 +30,7 @@ export default function RequestPersonalLoanScreen() {
 
   const loanTypeRaw = getParam(params.loanType);
   const loanType = typeof loanTypeRaw === 'string' && loanTypeRaw.trim().length > 0 ? loanTypeRaw : 'PERSONAL';
+  const isBusiness = loanType.toLowerCase().includes('business');
 
   const product = useMemo(() => {
     const products = appData?.products ?? [];
@@ -190,6 +191,7 @@ export default function RequestPersonalLoanScreen() {
               <View className="flex-row flex-wrap gap-2">
                 {durations.map((d) => {
                   const active = durationDays === d;
+                  const label = isBusiness ? `${Math.round(d / 30)} months` : `${d} days`;
                   return (
                     <Pressable
                       key={String(d)}
@@ -197,7 +199,7 @@ export default function RequestPersonalLoanScreen() {
                       accessibilityRole="button"
                       className={`rounded-full px-4 py-2 ${active ? 'bg-purple-600' : 'bg-gray-100'}`}
                     >
-                      <Text className={`text-sm font-semibold ${active ? 'text-white' : 'text-gray-700'}`}>{d} days</Text>
+                      <Text className={`text-sm font-semibold ${active ? 'text-white' : 'text-gray-700'}`}>{label}</Text>
                     </Pressable>
                   );
                 })}
@@ -205,7 +207,7 @@ export default function RequestPersonalLoanScreen() {
             ) : (
               <Input
                 value={durationDays ? String(durationDays) : ''}
-                placeholder="Duration (days)"
+                placeholder={isBusiness ? 'Duration (days)' : 'Duration (days)'}
                 onChangeText={(t) => {
                   const n = Number(t.replace(/[^0-9]/g, ''));
                   setDurationDays(Number.isFinite(n) && n > 0 ? n : null);

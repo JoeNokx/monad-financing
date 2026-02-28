@@ -259,6 +259,12 @@ export async function setKycStatus(args: { userId: string; status: 'PENDING' | '
   });
 }
 
+export async function deleteKycSubmission(args: { userId: string }) {
+  return prisma.kYCVerification.delete({
+    where: { userId: args.userId },
+  });
+}
+
 export async function listAllTransactions() {
   return prisma.transaction.findMany({
     orderBy: { createdAt: 'desc' },

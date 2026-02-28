@@ -17,6 +17,25 @@ function isBusiness(loanType: string) {
   return loanType.toLowerCase().includes('business');
 }
 
+function normalizeFrequency(value: string | null | undefined) {
+  if (!value) return null;
+  return (
+    value
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean)[0] ?? null
+  );
+}
+
+function calculateInterestForLoan(principal: Prisma.Decimal, interestRatePercent: number, durationDays: number, loanType: string) {
+  if (isBusiness(loanType)) {
+    const r = new Prisma.Decimal(interestRatePercent).div(100);
+    const timeFactor = new Prisma.Decimal(durationDays).div(360);
+    return principal.mul(r).mul(timeFactor);
+  }
+  return calculateInterest(principal, interestRatePercent);
+}
+
 async function getSettingsDefaultsForLoanType(loanType: string) {
   const settings = await prisma.systemSettings.upsert({
     where: { id: 'default' },
@@ -31,13 +50,19 @@ async function getSettingsDefaultsForLoanType(loanType: string) {
   });
 
   const interestRatePercent = settings.defaultInterestRatePercent.toNumber();
-  const gracePeriodDays = settings.defaultGracePeriodDays;
+  const gracePeriodDays = isBusiness(loanType) ? 0 : settings.defaultGracePeriodDays;
   const penaltyPerDay = settings.defaultPenaltyPerDay.toNumber();
   const maxPenalty = settings.defaultMaxPenalty.toNumber();
 
   const repaymentFrequency = isBusiness(loanType)
     ? settings.businessDefaultRepaymentFrequency
     : settings.personalDefaultRepaymentFrequency;
+  const normalizedRepaymentFrequency = repaymentFrequency
+    ? repaymentFrequency
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean)[0] ?? null
+    : null;
   const totalInstallments = isBusiness(loanType)
     ? settings.businessDefaultTotalInstallments
     : settings.personalDefaultTotalInstallments;
@@ -47,7 +72,7 @@ async function getSettingsDefaultsForLoanType(loanType: string) {
     gracePeriodDays,
     penaltyPerDay,
     maxPenalty,
-    repaymentFrequency,
+    repaymentFrequency: normalizedRepaymentFrequency,
     totalInstallments,
   };
 }
@@ -102,7 +127,7 @@ async function getLoanProductsConfigForUser(userId: string) {
       durationOptionsDays: personalDurationOptionsDays.length > 0 ? personalDurationOptionsDays : [7, 14, 30],
       interestRatePercent: personalInterestRatePercent,
       serviceChargePercent: personalServiceChargePercent,
-      repaymentFrequency: settings.personalDefaultRepaymentFrequency ?? null,
+      repaymentFrequency: normalizeFrequency(settings.personalDefaultRepaymentFrequency),
       totalInstallments: settings.personalDefaultTotalInstallments ?? null,
     },
     business: {
@@ -112,7 +137,7 @@ async function getLoanProductsConfigForUser(userId: string) {
       durationOptionsDays: businessDurationOptionsDays,
       interestRatePercent: businessInterestRatePercent,
       serviceChargePercent: businessServiceChargePercent,
-      repaymentFrequency: settings.businessDefaultRepaymentFrequency ?? null,
+      repaymentFrequency: normalizeFrequency(settings.businessDefaultRepaymentFrequency),
       totalInstallments: settings.businessDefaultTotalInstallments ?? null,
     },
   };
@@ -189,7 +214,7 @@ export async function quoteLoan(userId: string, input: LoanQuoteInput): Promise<
   const interestRatePercent = isPersonalLoan ? cfg.personal.interestRatePercent : cfg.business.interestRatePercent;
   const serviceChargePercent = isPersonalLoan ? cfg.personal.serviceChargePercent : cfg.business.serviceChargePercent;
 
-  const interestAmount = calculateInterest(principal, interestRatePercent);
+  const interestAmount = calculateInterestForLoan(principal, interestRatePercent, durationDays, loanType);
   const serviceChargeAmount = principal.mul(new Prisma.Decimal(serviceChargePercent).div(100));
   const totalRepayment = principal.plus(interestAmount).plus(serviceChargeAmount);
 
@@ -296,13 +321,19 @@ export async function applyLoan(userId: string, input: ApplyLoanInput) {
     ? (settings.personalServiceChargePercent ? settings.personalServiceChargePercent.toNumber() : 0)
     : (s.businessServiceChargePercent ? s.businessServiceChargePercent.toNumber() : 0);
 
-  const gracePeriodDays = input.gracePeriodDays ?? defaults.gracePeriodDays;
-  const repaymentFrequency = input.repaymentFrequency ?? defaults.repaymentFrequency ?? undefined;
+  const gracePeriodDays = isBusiness(input.loanType) ? 0 : (input.gracePeriodDays ?? defaults.gracePeriodDays);
+  const repaymentFrequencyRaw = input.repaymentFrequency ?? defaults.repaymentFrequency ?? undefined;
+  const repaymentFrequency = repaymentFrequencyRaw
+    ? repaymentFrequencyRaw
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean)[0]
+    : undefined;
   const totalInstallments = input.totalInstallments ?? defaults.totalInstallments ?? undefined;
   const penaltyPerDay = input.penaltyPerDay ?? defaults.penaltyPerDay;
   const maxPenalty = input.maxPenalty ?? defaults.maxPenalty;
 
-  const interestAmount = calculateInterest(principal, interestRatePercent);
+  const interestAmount = calculateInterestForLoan(principal, interestRatePercent, input.durationDays, input.loanType);
   const serviceChargeAmount = principal.mul(new Prisma.Decimal(serviceChargePercent).div(100));
   const totalRepayment = principal.plus(interestAmount).plus(serviceChargeAmount);
 

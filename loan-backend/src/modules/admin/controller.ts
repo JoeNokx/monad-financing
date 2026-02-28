@@ -1,18 +1,18 @@
-
 import type { RequestHandler } from 'express';
 
 import ApiError from '../../common/errors/ApiError';
 import {
+  adminDeleteKyc,
   adminListKyc,
   adminListLoans,
   adminListNotifications,
+  adminListReferrals,
   adminListTransactions,
   adminListUsers,
-  adminListReferrals,
   adminSendNotification,
-  adminSetReferralStatus,
   adminSetKycStatus,
   adminSetLoanStatus,
+  adminSetReferralStatus,
   adminSetUserBlocked,
   assignUserRoles,
   readSettings,
@@ -30,6 +30,32 @@ export const getSettings: RequestHandler = async (_req, res, next) => {
     const settings = await readSettings();
     res.json({ success: true, data: settings });
   } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteKyc: RequestHandler = async (req, res, next) => {
+  try {
+    const userId = paramAsString((req.params as any).userId);
+    if (!userId) throw new ApiError('Invalid userId', { statusCode: 400, code: 'INVALID_USER_ID' });
+
+    const data = await adminDeleteKyc(userId);
+
+    try {
+      await adminSendNotification({
+        userId,
+        type: 'KYC',
+        message: 'KYC invalid. Please submit correct details.',
+      });
+    } catch {
+      // Do not block admin action on notification failure.
+    }
+
+    res.json({ success: true, data });
+  } catch (err: any) {
+    if (err?.code === 'P2025') {
+      return next(new ApiError('KYC record not found', { statusCode: 404, code: 'KYC_NOT_FOUND' }));
+    }
     next(err);
   }
 };
@@ -91,6 +117,15 @@ export const updateKycStatus: RequestHandler = async (req, res, next) => {
     if (!userId) throw new ApiError('Invalid userId', { statusCode: 400, code: 'INVALID_USER_ID' });
 
     const data = await adminSetKycStatus(userId, req.body.status);
+
+    try {
+      const status = String(req.body.status);
+      const message = status === 'APPROVED' ? 'Your KYC has been approved.' : status === 'REJECTED' ? 'Your KYC has been rejected.' : 'Your KYC status was updated.';
+      await adminSendNotification({ userId, type: 'KYC', message });
+    } catch {
+      // Do not block admin action on notification failure.
+    }
+
     res.json({ success: true, data });
   } catch (err: any) {
     if (err?.code === 'P2025') {

@@ -5,8 +5,8 @@ import type { SubmitKycInput } from './types';
 
 export async function submitKyc(userId: string, input: SubmitKycInput) {
   const existing = await getKycByUserId(userId);
-  if (existing && existing.verificationStatus === 'APPROVED') {
-    throw new ApiError('KYC already approved', { statusCode: 400, code: 'KYC_APPROVED' });
+  if (existing) {
+    throw new ApiError('KYC already submitted', { statusCode: 400, code: 'KYC_ALREADY_SUBMITTED' });
   }
 
   return upsertKyc(userId, input);

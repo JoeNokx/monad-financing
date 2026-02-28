@@ -43,7 +43,7 @@ function StatusCard(props: { status: KycVerificationStatus | 'PENDING'; hasSubmi
           ? props.status === 'APPROVED'
             ? 'Your documents have been approved.'
             : props.status === 'REJECTED'
-              ? 'Your submission was rejected. Please resubmit clear images.'
+              ? 'Your submission was rejected. Please contact support or wait for an admin to reset your KYC.'
               : 'Your documents are under review (24-48 hours).'
           : 'Submit your documents to start verification.'}
       </Text>
@@ -156,8 +156,8 @@ export default function KycScreen() {
       return;
     }
 
-    if (current.status === 'APPROVED') {
-      Alert.alert('Already verified', 'Your KYC is already approved.');
+    if (current.hasSubmission) {
+      Alert.alert('Already submitted', 'You have already submitted your KYC. Please wait for admin review.');
       return;
     }
 
@@ -197,36 +197,44 @@ export default function KycScreen() {
 
       <View className="h-6" />
 
-      <View className="rounded-2xl border border-gray-100 bg-white p-5">
-        <Text className="text-base font-semibold text-gray-900">Select ID Type</Text>
-        <View className="h-4" />
-        <View className="gap-3">
-          {idTypes.map((t) => (
-            <SelectOption key={t} label={t} selected={idType === t} onPress={() => setIdType(t)} />
-          ))}
+      {!current.hasSubmission ? (
+        <>
+          <View className="rounded-2xl border border-gray-100 bg-white p-5">
+            <Text className="text-base font-semibold text-gray-900">Select ID Type</Text>
+            <View className="h-4" />
+            <View className="gap-3">
+              {idTypes.map((t) => (
+                <SelectOption key={t} label={t} selected={idType === t} onPress={() => setIdType(t)} />
+              ))}
+            </View>
+
+            <View className="h-5" />
+
+            <Text className="text-base font-semibold text-gray-900">ID Number</Text>
+            <View className="h-2" />
+            <Input value={idNumber} placeholder="Enter ID number" onChangeText={setIdNumber} />
+          </View>
+
+          <View className="h-6" />
+
+          <View className="gap-4">
+            <UploadRow title="Upload ID Front" image={idFront} onPick={() => void pickImage(setIdFront)} />
+            <UploadRow title="Upload ID Back" image={idBack} onPick={() => void pickImage(setIdBack)} />
+            <UploadRow title="Upload Selfie" image={selfie} onPick={() => void pickImage(setSelfie)} />
+          </View>
+
+          <View className="h-6" />
+
+          <Button title={submitting ? 'Submitting...' : 'Submit for Review'} onPress={() => void submit()} disabled={submitting} />
+
+          <View className="h-2" />
+          <Text className="text-center text-xs text-gray-500">Make sure all images are clear and readable.</Text>
+        </>
+      ) : (
+        <View className="rounded-2xl border border-gray-100 bg-white p-5">
+          <Text className="text-gray-600">You have already submitted your KYC. Wait for review or contact support.</Text>
         </View>
-
-        <View className="h-5" />
-
-        <Text className="text-base font-semibold text-gray-900">ID Number</Text>
-        <View className="h-2" />
-        <Input value={idNumber} placeholder="Enter ID number" onChangeText={setIdNumber} />
-      </View>
-
-      <View className="h-6" />
-
-      <View className="gap-4">
-        <UploadRow title="Upload ID Front" image={idFront} onPick={() => void pickImage(setIdFront)} />
-        <UploadRow title="Upload ID Back" image={idBack} onPick={() => void pickImage(setIdBack)} />
-        <UploadRow title="Upload Selfie" image={selfie} onPick={() => void pickImage(setSelfie)} />
-      </View>
-
-      <View className="h-6" />
-
-      <Button title={submitting ? 'Submitting...' : 'Submit for Review'} onPress={() => void submit()} disabled={submitting} />
-
-      <View className="h-2" />
-      <Text className="text-center text-xs text-gray-500">Make sure all images are clear and readable.</Text>
+      )}
     </ScrollView>
   );
 }

@@ -14,6 +14,7 @@ import KycDetail from '../features/kyc/KycDetail';
 import Transactions from '../features/transactions/Transactions';
 import TransactionDetail from '../features/transactions/TransactionDetail';
 import Reports from '../features/reports/Reports';
+import Referrals from '../features/referrals/Referrals';
 import Settings from '../features/settings/Settings';
 
 export function AppRoutes() {
@@ -37,6 +38,7 @@ export function AppRoutes() {
         <Route path="loans/:loanId" element={<LoanDetail />} />
         <Route path="kyc" element={<KycVerifications />} />
         <Route path="kyc/:userId" element={<KycDetail />} />
+        <Route path="referrals" element={<Referrals />} />
         <Route path="transactions" element={<Transactions />} />
         <Route path="transactions/:transactionId" element={<TransactionDetail />} />
         <Route path="reports" element={<Reports />} />

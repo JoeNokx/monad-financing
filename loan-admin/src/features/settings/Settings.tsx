@@ -31,6 +31,10 @@ type SystemSettings = {
   businessDefaultTotalInstallments: number | null;
 };
 
+const PERSONAL_DAY_OPTIONS = [3, 7, 14, 21, 30, 40, 60, 90];
+const BUSINESS_MONTH_OPTIONS = [3, 6, 12, 24, 36];
+const BUSINESS_FREQUENCY_OPTIONS = ['WEEKLY', 'MONTHLY'] as const;
+
 function toNumber(value: string | number | null | undefined) {
   if (value === null || value === undefined) return 0;
   if (typeof value === 'number') return value;
@@ -38,15 +42,11 @@ function toNumber(value: string | number | null | undefined) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function parseIntList(text: string) {
-  const parts = text
+function parseCsvTokens(value: string) {
+  return value
     .split(',')
-    .map((p) => p.trim())
+    .map((v) => v.trim())
     .filter(Boolean);
-  const nums = parts
-    .map((p) => Number(p.replace(/[^0-9]/g, '')))
-    .filter((n) => Number.isFinite(n) && n > 0);
-  return nums;
 }
 
 export default function Settings() {
@@ -65,22 +65,20 @@ export default function Settings() {
 
   const productsDefaults = useMemo(() => {
     if (!settings) return null;
+    const businessFreq = parseCsvTokens(settings.businessDefaultRepaymentFrequency ?? '').map((v) => v.toUpperCase());
     return {
       personalMinLoanAmount: settings.personalMinLoanAmount === null ? '' : String(toNumber(settings.personalMinLoanAmount)),
       personalMaxLoanAmount: settings.personalMaxLoanAmount === null ? '' : String(toNumber(settings.personalMaxLoanAmount)),
-      personalDurationOptionsDays: Array.isArray(settings.personalDurationOptionsDays) ? settings.personalDurationOptionsDays.join(', ') : '',
+      personalDurationOptionsDays: Array.isArray(settings.personalDurationOptionsDays) ? settings.personalDurationOptionsDays : [],
       personalInterestRatePercent: settings.personalInterestRatePercent === null ? '' : String(toNumber(settings.personalInterestRatePercent)),
       personalServiceChargePercent: settings.personalServiceChargePercent === null ? '' : String(toNumber(settings.personalServiceChargePercent)),
-      personalDefaultRepaymentFrequency: settings.personalDefaultRepaymentFrequency ?? '',
-      personalDefaultTotalInstallments: settings.personalDefaultTotalInstallments === null ? '' : String(settings.personalDefaultTotalInstallments ?? ''),
 
       businessMinLoanAmount: settings.businessMinLoanAmount === null ? '' : String(toNumber(settings.businessMinLoanAmount)),
       businessMaxLoanAmount: settings.businessMaxLoanAmount === null ? '' : String(toNumber(settings.businessMaxLoanAmount)),
-      businessDurationOptionsDays: Array.isArray(settings.businessDurationOptionsDays) ? settings.businessDurationOptionsDays.join(', ') : '',
+      businessDurationOptionsDays: Array.isArray(settings.businessDurationOptionsDays) ? settings.businessDurationOptionsDays : [],
       businessInterestRatePercent: settings.businessInterestRatePercent === null ? '' : String(toNumber(settings.businessInterestRatePercent)),
       businessServiceChargePercent: settings.businessServiceChargePercent === null ? '' : String(toNumber(settings.businessServiceChargePercent)),
-      businessDefaultRepaymentFrequency: settings.businessDefaultRepaymentFrequency ?? '',
-      businessDefaultTotalInstallments: settings.businessDefaultTotalInstallments === null ? '' : String(settings.businessDefaultTotalInstallments ?? ''),
+      businessDefaultRepaymentFrequency: BUSINESS_FREQUENCY_OPTIONS.filter((f) => businessFreq.includes(f)),
     };
   }, [settings]);
 
@@ -96,19 +94,16 @@ export default function Settings() {
   const [productsForm, setProductsForm] = useState(() => ({
     personalMinLoanAmount: '',
     personalMaxLoanAmount: '',
-    personalDurationOptionsDays: '',
+    personalDurationOptionsDays: [] as number[],
     personalInterestRatePercent: '',
     personalServiceChargePercent: '',
-    personalDefaultRepaymentFrequency: '',
-    personalDefaultTotalInstallments: '',
 
     businessMinLoanAmount: '',
     businessMaxLoanAmount: '',
-    businessDurationOptionsDays: '',
+    businessDurationOptionsDays: [] as number[],
     businessInterestRatePercent: '',
     businessServiceChargePercent: '',
-    businessDefaultRepaymentFrequency: '',
-    businessDefaultTotalInstallments: '',
+    businessDefaultRepaymentFrequency: [] as Array<(typeof BUSINESS_FREQUENCY_OPTIONS)[number]>,
   }));
 
   const [penaltyForm, setPenaltyForm] = useState(() => ({
@@ -183,9 +178,31 @@ export default function Settings() {
                   <Field label="Service charge (%)" value={productsForm.personalServiceChargePercent} onChange={(v) => setProductsForm((s) => ({ ...s, personalServiceChargePercent: v }))} />
                   <Field label="Min amount" value={productsForm.personalMinLoanAmount} onChange={(v) => setProductsForm((s) => ({ ...s, personalMinLoanAmount: v }))} />
                   <Field label="Max amount" value={productsForm.personalMaxLoanAmount} onChange={(v) => setProductsForm((s) => ({ ...s, personalMaxLoanAmount: v }))} />
-                  <Field label="Duration options (days, comma-separated)" value={productsForm.personalDurationOptionsDays} onChange={(v) => setProductsForm((s) => ({ ...s, personalDurationOptionsDays: v }))} />
-                  <Field label="Repayment frequency" value={productsForm.personalDefaultRepaymentFrequency} onChange={(v) => setProductsForm((s) => ({ ...s, personalDefaultRepaymentFrequency: v }))} placeholder="MONTHLY / WEEKLY" />
-                  <Field label="Total installments" value={productsForm.personalDefaultTotalInstallments} onChange={(v) => setProductsForm((s) => ({ ...s, personalDefaultTotalInstallments: v }))} placeholder="e.g. 4" />
+                  <div>
+                    <div className="mb-2 text-xs font-semibold text-slate-600">Repayment frequency (days)</div>
+                    <div className="flex flex-wrap gap-3">
+                      {PERSONAL_DAY_OPTIONS.map((d) => {
+                        const checked = productsForm.personalDurationOptionsDays.includes(d);
+                        return (
+                          <label key={String(d)} className="flex items-center gap-2 text-sm text-slate-700">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                setProductsForm((s) => {
+                                  const next = new Set(s.personalDurationOptionsDays);
+                                  if (next.has(d)) next.delete(d);
+                                  else next.add(d);
+                                  return { ...s, personalDurationOptionsDays: Array.from(next).sort((a, b) => a - b) };
+                                });
+                              }}
+                            />
+                            {d} days
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
@@ -195,9 +212,61 @@ export default function Settings() {
                   <Field label="Service charge (%)" value={productsForm.businessServiceChargePercent} onChange={(v) => setProductsForm((s) => ({ ...s, businessServiceChargePercent: v }))} />
                   <Field label="Min amount" value={productsForm.businessMinLoanAmount} onChange={(v) => setProductsForm((s) => ({ ...s, businessMinLoanAmount: v }))} />
                   <Field label="Max amount" value={productsForm.businessMaxLoanAmount} onChange={(v) => setProductsForm((s) => ({ ...s, businessMaxLoanAmount: v }))} />
-                  <Field label="Duration options (days, comma-separated)" value={productsForm.businessDurationOptionsDays} onChange={(v) => setProductsForm((s) => ({ ...s, businessDurationOptionsDays: v }))} />
-                  <Field label="Repayment frequency" value={productsForm.businessDefaultRepaymentFrequency} onChange={(v) => setProductsForm((s) => ({ ...s, businessDefaultRepaymentFrequency: v }))} placeholder="WEEKLY / MONTHLY" />
-                  <Field label="Total installments" value={productsForm.businessDefaultTotalInstallments} onChange={(v) => setProductsForm((s) => ({ ...s, businessDefaultTotalInstallments: v }))} placeholder="e.g. 8" />
+                  <div>
+                    <div className="mb-2 text-xs font-semibold text-slate-600">Duration options (months)</div>
+                    <div className="flex flex-wrap gap-3">
+                      {BUSINESS_MONTH_OPTIONS.map((m) => {
+                        const asDays = m * 30;
+                        const checked = productsForm.businessDurationOptionsDays.includes(asDays);
+                        return (
+                          <label key={String(m)} className="flex items-center gap-2 text-sm text-slate-700">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                setProductsForm((s) => {
+                                  const next = new Set(s.businessDurationOptionsDays);
+                                  if (next.has(asDays)) next.delete(asDays);
+                                  else next.add(asDays);
+                                  return { ...s, businessDurationOptionsDays: Array.from(next).sort((a, b) => a - b) };
+                                });
+                              }}
+                            />
+                            {m} months
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-2 text-xs font-semibold text-slate-600">Repayment frequency</div>
+                    <div className="flex flex-wrap gap-3">
+                      {BUSINESS_FREQUENCY_OPTIONS.map((f) => {
+                        const checked = productsForm.businessDefaultRepaymentFrequency.includes(f);
+                        return (
+                          <label key={f} className="flex items-center gap-2 text-sm text-slate-700">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                setProductsForm((s) => {
+                                  const next = new Set(s.businessDefaultRepaymentFrequency);
+                                  if (next.has(f)) next.delete(f);
+                                  else next.add(f);
+                                  return {
+                                    ...s,
+                                    businessDefaultRepaymentFrequency: BUSINESS_FREQUENCY_OPTIONS.filter((opt) => next.has(opt)) as any,
+                                  };
+                                });
+                              }}
+                            />
+                            {f}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -207,26 +276,22 @@ export default function Settings() {
                   variant="primary"
                   disabled={updateMutation.isPending}
                   onClick={() => {
-                    const personalDurations = parseIntList(productsForm.personalDurationOptionsDays);
-                    const businessDurations = parseIntList(productsForm.businessDurationOptionsDays);
+                    const personalDurations = productsForm.personalDurationOptionsDays;
+                    const businessDurations = productsForm.businessDurationOptionsDays;
+                    const businessFreq = productsForm.businessDefaultRepaymentFrequency;
                     const payload: Record<string, unknown> = {
                       personalInterestRatePercent: productsForm.personalInterestRatePercent.trim() === '' ? null : Number(productsForm.personalInterestRatePercent),
                       personalServiceChargePercent: productsForm.personalServiceChargePercent.trim() === '' ? null : Number(productsForm.personalServiceChargePercent),
                       personalMinLoanAmount: productsForm.personalMinLoanAmount.trim() === '' ? null : Number(productsForm.personalMinLoanAmount),
                       personalMaxLoanAmount: productsForm.personalMaxLoanAmount.trim() === '' ? null : Number(productsForm.personalMaxLoanAmount),
-                      personalDurationOptionsDays: productsForm.personalDurationOptionsDays.trim() === '' ? null : personalDurations.length > 0 ? personalDurations : null,
-                      personalDefaultRepaymentFrequency: productsForm.personalDefaultRepaymentFrequency.trim() === '' ? null : productsForm.personalDefaultRepaymentFrequency.trim(),
-                      personalDefaultTotalInstallments:
-                        productsForm.personalDefaultTotalInstallments.trim() === '' ? null : Number(productsForm.personalDefaultTotalInstallments),
+                      personalDurationOptionsDays: personalDurations.length > 0 ? personalDurations : null,
 
                       businessInterestRatePercent: productsForm.businessInterestRatePercent.trim() === '' ? null : Number(productsForm.businessInterestRatePercent),
                       businessServiceChargePercent: productsForm.businessServiceChargePercent.trim() === '' ? null : Number(productsForm.businessServiceChargePercent),
                       businessMinLoanAmount: productsForm.businessMinLoanAmount.trim() === '' ? null : Number(productsForm.businessMinLoanAmount),
                       businessMaxLoanAmount: productsForm.businessMaxLoanAmount.trim() === '' ? null : Number(productsForm.businessMaxLoanAmount),
-                      businessDurationOptionsDays: productsForm.businessDurationOptionsDays.trim() === '' ? null : businessDurations,
-                      businessDefaultRepaymentFrequency: productsForm.businessDefaultRepaymentFrequency.trim() === '' ? null : productsForm.businessDefaultRepaymentFrequency.trim(),
-                      businessDefaultTotalInstallments:
-                        productsForm.businessDefaultTotalInstallments.trim() === '' ? null : Number(productsForm.businessDefaultTotalInstallments),
+                      businessDurationOptionsDays: businessDurations.length > 0 ? businessDurations : null,
+                      businessDefaultRepaymentFrequency: businessFreq.length > 0 ? businessFreq.join(',') : null,
                     };
 
                     updateMutation.mutate(payload);

@@ -19,7 +19,7 @@ export default function RequestLoanScreen() {
       return;
     }
 
-    router.push(`/(app)/request-personal-loan?loanType=${encodeURIComponent(product.id)}` as any);
+    router.push(`/(app)/business-loan?loanType=${encodeURIComponent(product.id)}` as any);
   }
 
   return (
@@ -36,6 +36,10 @@ export default function RequestLoanScreen() {
       <View className="gap-4">
         {products.map((p) => {
             const subtitle = `${formatGhs(p.availableAmount)} available`;
+            const isBusiness = p.id.toLowerCase().includes('business');
+            const durationLabel = isBusiness
+              ? `Duration: ${p.durationOptionsDays.map((d) => Math.round(d / 30)).join(' / ')} months`
+              : `Duration: ${p.durationOptionsDays.join(' / ')} days`;
             return (
               <Pressable key={p.id} onPress={() => goToProduct(p)} accessibilityRole="button">
                 <Card className="rounded-2xl border-gray-100 p-5">
@@ -47,7 +51,7 @@ export default function RequestLoanScreen() {
                       {p.durationOptionsDays.length > 0 ? (
                         <>
                           <View className="h-2" />
-                          <Text className="text-xs text-gray-500">Duration: {p.durationOptionsDays.join(' / ')} days</Text>
+                          <Text className="text-xs text-gray-500">{durationLabel}</Text>
                         </>
                       ) : null}
                     </View>

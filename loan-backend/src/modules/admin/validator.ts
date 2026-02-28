@@ -74,6 +74,12 @@ export const setKycStatusSchema = z.object({
   }),
 });
 
+export const deleteKycSchema = z.object({
+  params: z.object({
+    userId: z.string().uuid(),
+  }),
+});
+
 export const setReferralRewardStatusSchema = z.object({
   body: z
     .object({
