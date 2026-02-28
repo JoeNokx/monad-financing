@@ -1,6 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
+import { AppSkeleton } from '../../components/ui/AppSkeleton';
+
 export default function AppIndex() {
   const router = useRouter();
   const didNavRef = useRef(false);
@@ -11,5 +13,5 @@ export default function AppIndex() {
     router.replace('/(app)/home');
   }, [router]);
 
-  return null;
+  return <AppSkeleton />;
 }

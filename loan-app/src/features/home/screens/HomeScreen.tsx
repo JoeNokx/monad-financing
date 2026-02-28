@@ -28,6 +28,8 @@ export default function HomeScreen() {
   const api = useApiClient();
   const { appData, appDataRefreshNonce } = useSecurity();
 
+  const products = appData?.products ?? [];
+
   const userId = appData?.me?.id ?? 'anonymous';
   const readKey = `notifications_read_v1_${userId}`;
 
@@ -251,11 +253,43 @@ export default function HomeScreen() {
         <Text className="text-xs font-semibold tracking-widest text-purple-600">AVAILABLE LOANS</Text>
         <View className="h-4" />
 
-        <View className="rounded-2xl bg-gray-50 p-4">
-          <Text className="text-base font-semibold text-gray-900">No loan plans available yet</Text>
-          <View className="h-1" />
-          <Text className="text-sm text-gray-600">When an admin creates loan plans, they will appear here.</Text>
-        </View>
+        {products.length > 0 ? (
+          <View className="gap-3">
+            {products.slice(0, 2).map((p) => {
+              const isPersonal = p.id.toLowerCase().includes('personal');
+              const iconName = isPersonal ? 'person-outline' : 'briefcase-outline';
+              const min = toNumber(p.minAmount);
+              const max = toNumber(p.maxAmount);
+              return (
+                <View key={p.id} className="rounded-2xl bg-gray-50 p-4">
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center gap-3">
+                      <View className="h-10 w-10 items-center justify-center rounded-2xl bg-purple-100">
+                        <Ionicons name={iconName as any} size={18} color="#7C3AED" />
+                      </View>
+                      <View>
+                        <Text className="text-base font-semibold text-gray-900">{p.displayName}</Text>
+                        <View className="h-1" />
+                        <Text className="text-sm text-gray-600">{`GHS ${min.toLocaleString()} - ${max.toLocaleString()}`}</Text>
+                      </View>
+                    </View>
+
+                    <View className="items-end">
+                      <Text className="text-lg font-semibold text-gray-900">{`GHS ${max.toLocaleString()}`}</Text>
+                      <Text className="text-xs text-gray-500">Maximum</Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        ) : (
+          <View className="rounded-2xl bg-gray-50 p-4">
+            <Text className="text-base font-semibold text-gray-900">No loan plans available yet</Text>
+            <View className="h-1" />
+            <Text className="text-sm text-gray-600">When an admin creates loan plans, they will appear here.</Text>
+          </View>
+        )}
 
         <View className="h-4" />
 

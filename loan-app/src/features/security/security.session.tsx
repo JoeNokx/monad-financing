@@ -19,8 +19,10 @@ type SecurityValue = {
   hydrated: boolean;
   onboardingComplete: boolean;
   hasPin: boolean;
+  isUnlocked: boolean;
   locked: boolean;
   pendingPin: string | null;
+  unlockRedirectPath: string | null;
   appData: AppData | null;
   appDataRefreshNonce: number;
   syncClerkSessionId: (sessionId: string | null) => void;
@@ -29,6 +31,9 @@ type SecurityValue = {
   setOnboardingComplete: () => Promise<void>;
   lock: () => void;
   unlock: () => void;
+  suspendAutoLock: (ms: number) => void;
+  setUnlockRedirectPath: (path: string | null) => void;
+  consumeUnlockRedirectPath: () => string | null;
   startPinSetup: (pin: string) => void;
   clearPendingPin: () => void;
   setPin: (pin: string) => Promise<void>;
@@ -38,18 +43,22 @@ type SecurityValue = {
 const ONBOARDING_KEY = 'onboarding_complete_v1';
 const PIN_KEY = 'auth_pin_v1';
 
+const AUTO_LOCK_MIN_BACKGROUND_MS = 2500;
+
 const SecurityContext = createContext<SecurityValue | null>(null);
 
 export function SecurityProvider({ children }: PropsWithChildren) {
   const [hydrated, setHydrated] = useState(false);
   const [onboardingComplete, setOnboardingCompleteState] = useState(false);
   const [hasPin, setHasPin] = useState(false);
-  const [locked, setLocked] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(false);
   const [pendingPin, setPendingPin] = useState<string | null>(null);
+  const [unlockRedirectPath, setUnlockRedirectPathState] = useState<string | null>(null);
   const [appData, setAppData] = useState<AppData | null>(null);
   const [appDataRefreshNonce, setAppDataRefreshNonce] = useState(0);
 
   const backgroundAtRef = useRef<number | null>(null);
+  const autoLockSuspendedUntilRef = useRef<number | null>(null);
   const clerkSessionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -65,7 +74,7 @@ export function SecurityProvider({ children }: PropsWithChildren) {
 
       setOnboardingCompleteState(onboarding);
       setHasPin(pinExists);
-      setLocked(pinExists);
+      setIsUnlocked(!pinExists);
       setHydrated(true);
     }
 
@@ -76,9 +85,12 @@ export function SecurityProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  const locked = hasPin && !isUnlocked;
+
   useEffect(() => {
     function onAppStateChange(nextState: AppStateStatus) {
       if (nextState === 'background' || nextState === 'inactive') {
+        if (!isUnlocked) return;
         backgroundAtRef.current = Date.now();
         return;
       }
@@ -88,15 +100,24 @@ export function SecurityProvider({ children }: PropsWithChildren) {
         backgroundAtRef.current = null;
         if (!bgAt) return;
 
-        if (hasPin) {
-          setLocked(true);
+        if (Date.now() - bgAt < AUTO_LOCK_MIN_BACKGROUND_MS) {
+          return;
+        }
+
+        const suspendedUntil = autoLockSuspendedUntilRef.current;
+        if (suspendedUntil && Date.now() < suspendedUntil) {
+          return;
+        }
+
+        if (hasPin && isUnlocked) {
+          setIsUnlocked(false);
         }
       }
     }
 
     const sub = AppState.addEventListener('change', onAppStateChange);
     return () => sub.remove();
-  }, [hasPin]);
+  }, [hasPin, isUnlocked]);
 
   const setOnboardingComplete = useCallback(async () => {
     await setSecureItem(ONBOARDING_KEY, 'true');
@@ -104,7 +125,7 @@ export function SecurityProvider({ children }: PropsWithChildren) {
   }, []);
 
   const lock = useCallback(() => {
-    if (hasPin) setLocked(true);
+    if (hasPin) setIsUnlocked(false);
   }, [hasPin]);
 
   const syncClerkSessionId = useCallback(
@@ -114,10 +135,6 @@ export function SecurityProvider({ children }: PropsWithChildren) {
 
       if (!sessionId) return;
       if (prev && prev === sessionId) return;
-
-      if (hasPin) {
-        setLocked(true);
-      }
     },
     [hasPin],
   );
@@ -127,7 +144,26 @@ export function SecurityProvider({ children }: PropsWithChildren) {
   }, []);
 
   const unlock = useCallback(() => {
-    setLocked(false);
+    setIsUnlocked(true);
+    backgroundAtRef.current = null;
+    autoLockSuspendedUntilRef.current = Date.now() + AUTO_LOCK_MIN_BACKGROUND_MS;
+  }, []);
+
+  const suspendAutoLock = useCallback((ms: number) => {
+    autoLockSuspendedUntilRef.current = Date.now() + Math.max(0, ms);
+  }, []);
+
+  const setUnlockRedirectPath = useCallback((path: string | null) => {
+    setUnlockRedirectPathState(path);
+  }, []);
+
+  const consumeUnlockRedirectPath = useCallback(() => {
+    let path: string | null = null;
+    setUnlockRedirectPathState((p) => {
+      path = p;
+      return null;
+    });
+    return path;
   }, []);
 
   const startPinSetup = useCallback((pin: string) => {
@@ -141,7 +177,9 @@ export function SecurityProvider({ children }: PropsWithChildren) {
   const setPin = useCallback(async (pin: string) => {
     await setSecureItem(PIN_KEY, pin);
     setHasPin(true);
-    setLocked(false);
+    setIsUnlocked(true);
+    backgroundAtRef.current = null;
+    autoLockSuspendedUntilRef.current = Date.now() + AUTO_LOCK_MIN_BACKGROUND_MS;
   }, []);
 
   const verifyPin = useCallback(async (pin: string) => {
@@ -149,7 +187,11 @@ export function SecurityProvider({ children }: PropsWithChildren) {
     if (!stored) return false;
 
     const ok = stored === pin;
-    if (ok) setLocked(false);
+    if (ok) {
+      setIsUnlocked(true);
+      backgroundAtRef.current = null;
+      autoLockSuspendedUntilRef.current = Date.now() + AUTO_LOCK_MIN_BACKGROUND_MS;
+    }
     return ok;
   }, []);
 
@@ -158,8 +200,10 @@ export function SecurityProvider({ children }: PropsWithChildren) {
       hydrated,
       onboardingComplete,
       hasPin,
+      isUnlocked,
       locked,
       pendingPin,
+      unlockRedirectPath,
       appData,
       appDataRefreshNonce,
       syncClerkSessionId,
@@ -168,6 +212,9 @@ export function SecurityProvider({ children }: PropsWithChildren) {
       setOnboardingComplete,
       lock,
       unlock,
+      suspendAutoLock,
+      setUnlockRedirectPath,
+      consumeUnlockRedirectPath,
       startPinSetup,
       clearPendingPin,
       setPin,
@@ -177,8 +224,10 @@ export function SecurityProvider({ children }: PropsWithChildren) {
       hydrated,
       onboardingComplete,
       hasPin,
+      isUnlocked,
       locked,
       pendingPin,
+      unlockRedirectPath,
       appData,
       appDataRefreshNonce,
       syncClerkSessionId,
@@ -186,6 +235,9 @@ export function SecurityProvider({ children }: PropsWithChildren) {
       setOnboardingComplete,
       lock,
       unlock,
+      suspendAutoLock,
+      setUnlockRedirectPath,
+      consumeUnlockRedirectPath,
       startPinSetup,
       clearPendingPin,
       setPin,

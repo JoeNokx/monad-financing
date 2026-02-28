@@ -30,10 +30,9 @@ export default function PinLoginScreen() {
 
 function PinLoginInner() {
   const router = useRouter();
-  const lastTargetRef = useRef<string | null>(null);
   const { signOut } = useClerk();
   const { isLoaded, isSignedIn } = useAuth();
-  const { hydrated, onboardingComplete, hasPin, verifyPin } = useSecurity();
+  const { hydrated, onboardingComplete, hasPin, verifyPin, consumeUnlockRedirectPath } = useSecurity();
 
   const [pin, setPin] = useState('');
   const [cooldownMs, setCooldownMs] = useState(0);
@@ -48,26 +47,6 @@ function PinLoginInner() {
 
     return () => clearInterval(id);
   }, [cooldownMs]);
-
-  useEffect(() => {
-    if (!hydrated || !isLoaded) return;
-
-    const target = (() => {
-      if (!onboardingComplete) return '/onboarding';
-      if (!isSignedIn) return '/(auth)/sign-in';
-      if (!hasPin) return '/(auth)/create-pin';
-      return null;
-    })();
-
-    if (!target) {
-      lastTargetRef.current = null;
-      return;
-    }
-
-    if (lastTargetRef.current === target) return;
-    lastTargetRef.current = target;
-    router.replace(target as any);
-  }, [hydrated, isLoaded, onboardingComplete, isSignedIn, hasPin, router]);
 
   const canContinue = useMemo(() => pin.length === 4, [pin]);
 
@@ -106,7 +85,8 @@ function PinLoginInner() {
             return;
           }
 
-          router.replace('/(app)/home');
+          const redirect = consumeUnlockRedirectPath();
+          router.replace((redirect || '/(app)/home') as any);
         }}
       />
       <View className="h-8" />

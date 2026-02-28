@@ -4,13 +4,17 @@ export async function getKycByUserId(userId: string) {
   return prisma.kYCVerification.findUnique({ where: { userId } });
 }
 
-export async function upsertKyc(userId: string, data: { idType: string; idNumber: string; idImageUrl: string; selfieUrl: string }) {
+export async function upsertKyc(
+  userId: string,
+  data: { idType: string; idNumber: string; idImageUrl: string; idBackImageUrl?: string | null; selfieUrl: string },
+) {
   return prisma.kYCVerification.upsert({
     where: { userId },
     update: {
       idType: data.idType,
       idNumber: data.idNumber,
       idImageUrl: data.idImageUrl,
+      idBackImageUrl: data.idBackImageUrl ?? null,
       selfieUrl: data.selfieUrl,
       verificationStatus: 'PENDING',
     },
@@ -19,6 +23,7 @@ export async function upsertKyc(userId: string, data: { idType: string; idNumber
       idType: data.idType,
       idNumber: data.idNumber,
       idImageUrl: data.idImageUrl,
+      idBackImageUrl: data.idBackImageUrl ?? null,
       selfieUrl: data.selfieUrl,
       verificationStatus: 'PENDING',
     },

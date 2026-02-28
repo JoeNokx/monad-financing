@@ -14,6 +14,7 @@ type AdminKyc = {
   idType: string;
   idNumber: string;
   idImageUrl: string;
+  idBackImageUrl?: string | null;
   selfieUrl: string;
   verificationStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | string;
   createdAt: string;
@@ -96,18 +97,51 @@ export default function KycDetail() {
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         <div>
-          <div className="text-xs font-semibold text-slate-500">ID Image</div>
+          <div className="text-xs font-semibold text-slate-500">ID Front</div>
+          <div className="mt-2 flex items-center gap-3 text-xs">
+            <a className="text-slate-900 underline" href={kyc.idImageUrl} target="_blank" rel="noreferrer">
+              View
+            </a>
+            <a className="text-slate-900 underline" href={kyc.idImageUrl} download>
+              Download
+            </a>
+          </div>
           <div className="mt-2 overflow-hidden rounded-lg border border-slate-200">
             <img src={kyc.idImageUrl} alt="KYC ID" className="h-auto w-full" />
           </div>
         </div>
         <div>
           <div className="text-xs font-semibold text-slate-500">Selfie</div>
+          <div className="mt-2 flex items-center gap-3 text-xs">
+            <a className="text-slate-900 underline" href={kyc.selfieUrl} target="_blank" rel="noreferrer">
+              View
+            </a>
+            <a className="text-slate-900 underline" href={kyc.selfieUrl} download>
+              Download
+            </a>
+          </div>
           <div className="mt-2 overflow-hidden rounded-lg border border-slate-200">
             <img src={kyc.selfieUrl} alt="KYC Selfie" className="h-auto w-full" />
           </div>
         </div>
       </div>
+
+      {kyc.idBackImageUrl ? (
+        <div className="mt-6">
+          <div className="text-xs font-semibold text-slate-500">ID Back</div>
+          <div className="mt-2 flex items-center gap-3 text-xs">
+            <a className="text-slate-900 underline" href={kyc.idBackImageUrl} target="_blank" rel="noreferrer">
+              View
+            </a>
+            <a className="text-slate-900 underline" href={kyc.idBackImageUrl} download>
+              Download
+            </a>
+          </div>
+          <div className="mt-2 overflow-hidden rounded-lg border border-slate-200">
+            <img src={kyc.idBackImageUrl} alt="KYC ID Back" className="h-auto w-full" />
+          </div>
+        </div>
+      ) : null}
     </Card>
   );
 }

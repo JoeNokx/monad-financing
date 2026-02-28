@@ -19,6 +19,8 @@ export type LoanProduct = {
   durationOptionsDays: number[];
   interestRatePercent: number;
   serviceChargePercent: number;
+  repaymentFrequency?: string | null;
+  totalInstallments?: number | null;
 };
 
 export type LoanQuoteInput = {

@@ -5,6 +5,13 @@ const apiRateLimit = rateLimit({
   limit: 300,
   standardHeaders: true,
   legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({
+      success: false,
+      message: 'Too many requests, please try again later.',
+      code: 'RATE_LIMIT',
+    });
+  },
 });
 
 export default apiRateLimit;

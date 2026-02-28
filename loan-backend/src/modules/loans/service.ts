@@ -68,19 +68,28 @@ async function getLoanProductsConfigForUser(userId: string) {
     }),
   ]);
 
+  const s = settings as any;
+
   if (!user) throw new ApiError('User not found', { statusCode: 404, code: 'USER_NOT_FOUND' });
 
   const defaultInterest = settings.defaultInterestRatePercent.toNumber();
 
   const personalMinAmount = settings.personalMinLoanAmount ? settings.personalMinLoanAmount.toNumber() : 100;
-  const personalInterestRatePercent = settings.personalInterestRatePercent
-    ? settings.personalInterestRatePercent.toNumber()
-    : 15;
-  const personalServiceChargePercent = settings.personalServiceChargePercent
-    ? settings.personalServiceChargePercent.toNumber()
-    : 2.5;
+  const personalMaxSetting = s.personalMaxLoanAmount ? s.personalMaxLoanAmount.toNumber() : null;
+  const personalMaxAmount = personalMaxSetting ? Math.min(personalMaxSetting, user.loanLimit.toNumber()) : user.loanLimit.toNumber();
+  const personalInterestRatePercent = settings.personalInterestRatePercent ? settings.personalInterestRatePercent.toNumber() : 15;
+  const personalServiceChargePercent = settings.personalServiceChargePercent ? settings.personalServiceChargePercent.toNumber() : 2.5;
   const personalDurationOptionsDays = Array.isArray(settings.personalDurationOptionsDays)
-    ? (settings.personalDurationOptionsDays as unknown[]).filter((v) => typeof v === 'number') as number[]
+    ? ((settings.personalDurationOptionsDays as unknown[]).filter((v) => typeof v === 'number') as number[])
+    : [];
+
+  const businessMinAmount = s.businessMinLoanAmount ? s.businessMinLoanAmount.toNumber() : 0;
+  const businessMaxSetting = s.businessMaxLoanAmount ? s.businessMaxLoanAmount.toNumber() : null;
+  const businessMaxAmount = businessMaxSetting ? Math.min(businessMaxSetting, user.loanLimit.toNumber()) : user.loanLimit.toNumber();
+  const businessInterestRatePercent = s.businessInterestRatePercent ? s.businessInterestRatePercent.toNumber() : defaultInterest;
+  const businessServiceChargePercent = s.businessServiceChargePercent ? s.businessServiceChargePercent.toNumber() : 0;
+  const businessDurationOptionsDays = Array.isArray(s.businessDurationOptionsDays)
+    ? ((s.businessDurationOptionsDays as unknown[]).filter((v) => typeof v === 'number') as number[])
     : [];
 
   return {
@@ -88,16 +97,23 @@ async function getLoanProductsConfigForUser(userId: string) {
     settings,
     personal: {
       minAmount: personalMinAmount,
-      maxAmount: user.loanLimit.toNumber(),
-      availableAmount: user.loanLimit.toNumber(),
+      maxAmount: personalMaxAmount,
+      availableAmount: personalMaxAmount,
       durationOptionsDays: personalDurationOptionsDays.length > 0 ? personalDurationOptionsDays : [7, 14, 30],
       interestRatePercent: personalInterestRatePercent,
       serviceChargePercent: personalServiceChargePercent,
+      repaymentFrequency: settings.personalDefaultRepaymentFrequency ?? null,
+      totalInstallments: settings.personalDefaultTotalInstallments ?? null,
     },
     business: {
-      maxAmount: user.loanLimit.toNumber(),
-      availableAmount: user.loanLimit.toNumber(),
-      interestRatePercent: defaultInterest,
+      minAmount: businessMinAmount,
+      maxAmount: businessMaxAmount,
+      availableAmount: businessMaxAmount,
+      durationOptionsDays: businessDurationOptionsDays,
+      interestRatePercent: businessInterestRatePercent,
+      serviceChargePercent: businessServiceChargePercent,
+      repaymentFrequency: settings.businessDefaultRepaymentFrequency ?? null,
+      totalInstallments: settings.businessDefaultTotalInstallments ?? null,
     },
   };
 }
@@ -115,16 +131,20 @@ export async function getLoanProducts(userId: string): Promise<LoanProduct[]> {
       durationOptionsDays: cfg.personal.durationOptionsDays,
       interestRatePercent: cfg.personal.interestRatePercent,
       serviceChargePercent: cfg.personal.serviceChargePercent,
+      repaymentFrequency: cfg.personal.repaymentFrequency ?? null,
+      totalInstallments: cfg.personal.totalInstallments ?? null,
     },
     {
       id: 'BUSINESS',
       displayName: 'Business Loan',
-      minAmount: 0,
+      minAmount: cfg.business.minAmount,
       maxAmount: cfg.business.maxAmount,
       availableAmount: cfg.business.availableAmount,
-      durationOptionsDays: [],
+      durationOptionsDays: cfg.business.durationOptionsDays,
       interestRatePercent: cfg.business.interestRatePercent,
-      serviceChargePercent: 0,
+      serviceChargePercent: cfg.business.serviceChargePercent,
+      repaymentFrequency: cfg.business.repaymentFrequency ?? null,
+      totalInstallments: cfg.business.totalInstallments ?? null,
     },
   ];
 }
@@ -136,13 +156,14 @@ export async function quoteLoan(userId: string, input: LoanQuoteInput): Promise<
   const principal = new Prisma.Decimal(input.amount);
   if (principal.lte(0)) throw new ApiError('Invalid amount', { statusCode: 400, code: 'INVALID_AMOUNT' });
 
-  if (principal.greaterThan(cfg.user.loanLimit)) {
+  const isPersonalLoan = isPersonal(loanType);
+  const cap = isPersonalLoan ? cfg.personal.maxAmount : cfg.business.maxAmount;
+  if (principal.greaterThan(new Prisma.Decimal(cap))) {
     throw new ApiError('Loan amount exceeds your limit', { statusCode: 400, code: 'LIMIT_EXCEEDED' });
   }
 
   const durationDays = input.durationDays;
 
-  const isPersonalLoan = isPersonal(loanType);
   if (isPersonalLoan) {
     const min = new Prisma.Decimal(cfg.personal.minAmount);
     if (min.gt(0) && principal.lessThan(min)) {
@@ -153,10 +174,20 @@ export async function quoteLoan(userId: string, input: LoanQuoteInput): Promise<
     if (allowed.length > 0 && !allowed.includes(durationDays)) {
       throw new ApiError('Invalid duration', { statusCode: 400, code: 'INVALID_DURATION' });
     }
+  } else {
+    const min = new Prisma.Decimal(cfg.business.minAmount);
+    if (min.gt(0) && principal.lessThan(min)) {
+      throw new ApiError('Loan amount below minimum', { statusCode: 400, code: 'MIN_AMOUNT' });
+    }
+
+    const allowed = cfg.business.durationOptionsDays;
+    if (allowed.length > 0 && !allowed.includes(durationDays)) {
+      throw new ApiError('Invalid duration', { statusCode: 400, code: 'INVALID_DURATION' });
+    }
   }
 
   const interestRatePercent = isPersonalLoan ? cfg.personal.interestRatePercent : cfg.business.interestRatePercent;
-  const serviceChargePercent = isPersonalLoan ? cfg.personal.serviceChargePercent : 0;
+  const serviceChargePercent = isPersonalLoan ? cfg.personal.serviceChargePercent : cfg.business.serviceChargePercent;
 
   const interestAmount = calculateInterest(principal, interestRatePercent);
   const serviceChargeAmount = principal.mul(new Prisma.Decimal(serviceChargePercent).div(100));
@@ -194,9 +225,6 @@ export async function applyLoan(userId: string, input: ApplyLoanInput) {
 
   const principal = new Prisma.Decimal(input.amount);
   if (principal.lte(0)) throw new ApiError('Invalid amount', { statusCode: 400, code: 'INVALID_AMOUNT' });
-  if (principal.greaterThan(user.loanLimit)) {
-    throw new ApiError('Loan amount exceeds your limit', { statusCode: 400, code: 'LIMIT_EXCEEDED' });
-  }
 
   if (isPersonal(input.loanType) && user.currentPersonalLoans >= user.maxPersonalLoans) {
     throw new ApiError('Personal loan limit reached', { statusCode: 400, code: 'PERSONAL_LOAN_LIMIT' });
@@ -218,8 +246,14 @@ export async function applyLoan(userId: string, input: ApplyLoanInput) {
     },
   });
 
+  const s = settings as any;
+
   const personalDurationOptionsDays = Array.isArray(settings.personalDurationOptionsDays)
     ? (settings.personalDurationOptionsDays as unknown[]).filter((v) => typeof v === 'number') as number[]
+    : [];
+
+  const businessDurationOptionsDays = Array.isArray(s.businessDurationOptionsDays)
+    ? (s.businessDurationOptionsDays as unknown[]).filter((v) => typeof v === 'number') as number[]
     : [];
 
   if (isPersonal(input.loanType)) {
@@ -228,21 +262,39 @@ export async function applyLoan(userId: string, input: ApplyLoanInput) {
       throw new ApiError('Loan amount below minimum', { statusCode: 400, code: 'MIN_AMOUNT' });
     }
 
+    const cap = s.personalMaxLoanAmount ? s.personalMaxLoanAmount : user.loanLimit;
+    if (principal.greaterThan(cap)) {
+      throw new ApiError('Loan amount exceeds your limit', { statusCode: 400, code: 'LIMIT_EXCEEDED' });
+    }
+
     const allowedDurations = personalDurationOptionsDays.length > 0 ? personalDurationOptionsDays : [7, 14, 30];
     if (!allowedDurations.includes(input.durationDays)) {
       throw new ApiError('Invalid duration', { statusCode: 400, code: 'INVALID_DURATION' });
     }
+  } else {
+    const minAmount = s.businessMinLoanAmount ?? new Prisma.Decimal(0);
+    if (minAmount.gt(0) && principal.lessThan(minAmount)) {
+      throw new ApiError('Loan amount below minimum', { statusCode: 400, code: 'MIN_AMOUNT' });
+    }
+
+    const cap = s.businessMaxLoanAmount ? s.businessMaxLoanAmount : user.loanLimit;
+    if (principal.greaterThan(cap)) {
+      throw new ApiError('Loan amount exceeds your limit', { statusCode: 400, code: 'LIMIT_EXCEEDED' });
+    }
+
+    const allowedDurations = businessDurationOptionsDays;
+    if (allowedDurations.length > 0 && !allowedDurations.includes(input.durationDays)) {
+      throw new ApiError('Invalid duration', { statusCode: 400, code: 'INVALID_DURATION' });
+    }
   }
 
-  const interestRatePercent =
-    isPersonal(input.loanType) && settings.personalInterestRatePercent
-      ? settings.personalInterestRatePercent.toNumber()
-      : (input.interestRatePercent ?? defaults.interestRatePercent);
+  const interestRatePercent = isPersonal(input.loanType)
+    ? (settings.personalInterestRatePercent ? settings.personalInterestRatePercent.toNumber() : (input.interestRatePercent ?? defaults.interestRatePercent))
+    : (s.businessInterestRatePercent ? s.businessInterestRatePercent.toNumber() : (input.interestRatePercent ?? defaults.interestRatePercent));
 
-  const serviceChargePercent =
-    isPersonal(input.loanType) && settings.personalServiceChargePercent
-      ? settings.personalServiceChargePercent.toNumber()
-      : 0;
+  const serviceChargePercent = isPersonal(input.loanType)
+    ? (settings.personalServiceChargePercent ? settings.personalServiceChargePercent.toNumber() : 0)
+    : (s.businessServiceChargePercent ? s.businessServiceChargePercent.toNumber() : 0);
 
   const gracePeriodDays = input.gracePeriodDays ?? defaults.gracePeriodDays;
   const repaymentFrequency = input.repaymentFrequency ?? defaults.repaymentFrequency ?? undefined;

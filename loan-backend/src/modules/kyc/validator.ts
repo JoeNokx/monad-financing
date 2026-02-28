@@ -5,8 +5,20 @@ export const submitKycSchema = z.object({
     idType: z.string().min(1),
     idNumber: z.string().min(3),
     idImageUrl: z.string().url(),
+    idBackImageUrl: z.string().url().optional().nullable(),
     selfieUrl: z.string().url(),
   }),
+  params: z.object({}).optional(),
+  query: z.object({}).optional(),
+});
+
+export const submitKycFilesSchema = z.object({
+  body: z
+    .object({
+      idType: z.string().min(1),
+      idNumber: z.string().min(3),
+    })
+    .strict(),
   params: z.object({}).optional(),
   query: z.object({}).optional(),
 });

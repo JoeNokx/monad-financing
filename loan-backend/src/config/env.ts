@@ -12,6 +12,10 @@ export const env = {
   INITIAL_SUPERADMIN_EMAILS: process.env.INITIAL_SUPERADMIN_EMAILS,
   PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,
   PAYSTACK_BASE_URL: process.env.PAYSTACK_BASE_URL ?? 'https://api.paystack.co',
+  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
+  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
+  CLOUDINARY_FOLDER: process.env.CLOUDINARY_FOLDER ?? 'loan-kyc',
 } as const;
 
 export function requireEnv(name: keyof typeof env): string {

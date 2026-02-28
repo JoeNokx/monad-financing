@@ -6,10 +6,12 @@ export type KycVerification = {
   idType: string;
   idNumber: string;
   idImageUrl: string;
+  idBackImageUrl?: string | null;
   selfieUrl: string;
   verificationStatus: KycVerificationStatus;
   smileReference?: string | null;
   createdAt: string;
+  updatedAt?: string;
 };
 
 export type KycStatusResponse = {

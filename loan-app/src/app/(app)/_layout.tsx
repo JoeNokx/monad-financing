@@ -1,6 +1,6 @@
 import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs, usePathname, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 
@@ -25,14 +25,38 @@ export default function AppLayout() {
 
 function ClerkGatedTabs() {
   const router = useRouter();
+  const pathname = usePathname();
   const lastTargetRef = useRef<string | null>(null);
   const lastLoadedNonceRef = useRef<number | null>(null);
   const { isLoaded, isSignedIn, sessionId } = useAuth();
-  const { hydrated, onboardingComplete, hasPin, locked, syncClerkSessionId, appData, setAppData, refreshAppData, appDataRefreshNonce } = useSecurity();
+  const authLoadedOnceRef = useRef(false);
+  const stableSessionIdRef = useRef<string | null>(null);
+  const {
+    hydrated,
+    onboardingComplete,
+    hasPin,
+    locked,
+    syncClerkSessionId,
+    appData,
+    setAppData,
+    refreshAppData,
+    appDataRefreshNonce,
+    setUnlockRedirectPath,
+  } = useSecurity();
   const api = useApiClient();
 
   const [preloadLoading, setPreloadLoading] = useState(false);
   const [preloadError, setPreloadError] = useState<string | null>(null);
+
+  if (isLoaded) {
+    if (sessionId) stableSessionIdRef.current = sessionId;
+    else if (!isSignedIn) stableSessionIdRef.current = null;
+  }
+
+  const isAuthed = Boolean(stableSessionIdRef.current) || isSignedIn;
+
+  if (isLoaded) authLoadedOnceRef.current = true;
+  const authReady = hydrated && authLoadedOnceRef.current;
 
   useEffect(() => {
     if (!hydrated) return;
@@ -40,7 +64,21 @@ function ClerkGatedTabs() {
   }, [hydrated, sessionId, syncClerkSessionId]);
 
   useEffect(() => {
-    if (!hydrated || !isLoaded || !onboardingComplete || !isSignedIn || !hasPin) {
+    if (!hydrated) return;
+
+    if (!authLoadedOnceRef.current) {
+      return;
+    }
+
+    if (!onboardingComplete || !hasPin) {
+      setPreloadError(null);
+      setPreloadLoading(false);
+      setAppData(null);
+      lastLoadedNonceRef.current = null;
+      return;
+    }
+
+    if (!isAuthed) {
       setPreloadError(null);
       setPreloadLoading(false);
       setAppData(null);
@@ -64,12 +102,19 @@ function ClerkGatedTabs() {
       setPreloadError(null);
 
       try {
+        const wrap = <T,>(promise: Promise<T>, label: string) => {
+          return promise.catch((e) => {
+            const msg = e instanceof Error ? e.message : String(e);
+            throw new Error(`${label}: ${msg}`);
+          });
+        };
+
         const [profileRes, meRes, kycRes, loansRes, productsRes] = await Promise.all([
-          api.request<ApiEnvelope<ProfileMeResponse>>({ path: '/api/profile/me' }),
-          api.request<ApiEnvelope<User>>({ path: '/api/users/me' }),
-          api.request<ApiEnvelope<KycStatusResponse>>({ path: '/api/kyc/status' }),
-          api.request<ApiEnvelope<Loan[]>>({ path: '/api/loans' }),
-          api.request<ApiEnvelope<LoanProduct[]>>({ path: '/api/loans/products' }),
+          wrap(api.request<ApiEnvelope<ProfileMeResponse>>({ path: '/api/profile/me' }), '/api/profile/me'),
+          wrap(api.request<ApiEnvelope<User>>({ path: '/api/users/me' }), '/api/users/me'),
+          wrap(api.request<ApiEnvelope<KycStatusResponse>>({ path: '/api/kyc/status' }), '/api/kyc/status'),
+          wrap(api.request<ApiEnvelope<Loan[]>>({ path: '/api/loans' }), '/api/loans'),
+          wrap(api.request<ApiEnvelope<LoanProduct[]>>({ path: '/api/loans/products' }), '/api/loans/products'),
         ]);
 
         if (cancelled) return;
@@ -97,20 +142,32 @@ function ClerkGatedTabs() {
     return () => {
       cancelled = true;
     };
-  }, [api, hydrated, isLoaded, onboardingComplete, isSignedIn, hasPin, locked, appData, appDataRefreshNonce, setAppData]);
+  }, [api, hydrated, onboardingComplete, isAuthed, hasPin, locked, appData, appDataRefreshNonce, setAppData]);
 
   const navTarget = useMemo(() => {
-    if (!hydrated || !isLoaded) return null;
+    if (!authReady) return null;
 
     if (!onboardingComplete) return '/onboarding';
-    if (!isSignedIn) return '/(auth)/sign-in';
+    if (!isAuthed) return '/(auth)/sign-in';
     if (!hasPin) return '/(auth)/create-pin';
     if (locked) return '/(auth)/pin-login';
 
     if (appData && !appData.profileMe.isComplete) return '/(setup)';
 
     return null;
-  }, [hydrated, isLoaded, onboardingComplete, isSignedIn, hasPin, locked, appData]);
+  }, [authReady, onboardingComplete, isAuthed, hasPin, locked, appData]);
+
+  const debugLines = useMemo(() => {
+    return [
+      `path: ${pathname}`,
+      `authReady: ${String(authReady)} isLoaded: ${String(isLoaded)} isSignedIn: ${String(isSignedIn)}`,
+      `sessionId: ${sessionId ? 'yes' : 'no'} stableSessionId: ${stableSessionIdRef.current ? 'yes' : 'no'} isAuthed: ${String(isAuthed)}`,
+      `hasPin: ${String(hasPin)} locked: ${String(locked)}`,
+      `navTarget: ${navTarget ?? 'null'}`,
+      `preloadLoading: ${String(preloadLoading)} appData: ${appData ? 'yes' : 'no'} nonce: ${String(appDataRefreshNonce)}`,
+      `preloadError: ${preloadError ?? 'null'}`,
+    ];
+  }, [pathname, authReady, isLoaded, isSignedIn, sessionId, isAuthed, hasPin, locked, navTarget, preloadLoading, appData, appDataRefreshNonce, preloadError]);
 
   useEffect(() => {
     if (!navTarget) {
@@ -120,10 +177,14 @@ function ClerkGatedTabs() {
 
     if (lastTargetRef.current === navTarget) return;
     lastTargetRef.current = navTarget;
-    router.replace(navTarget as any);
-  }, [router, navTarget]);
 
-  if (!hydrated || !isLoaded) {
+    if (navTarget === '/(auth)/pin-login') {
+      setUnlockRedirectPath(pathname);
+    }
+    router.replace(navTarget as any);
+  }, [router, navTarget, pathname, setUnlockRedirectPath]);
+
+  if (!authReady) {
     return <AppSkeleton />;
   }
 
@@ -143,62 +204,75 @@ function ClerkGatedTabs() {
     );
   }
 
-  if (preloadLoading || !appData) {
+  if (!appData) {
     return <AppSkeleton />;
   }
 
   return (
-    <Tabs
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarActiveTintColor: '#7C3AED',
-        tabBarInactiveTintColor: '#9CA3AF',
-        tabBarIcon: ({ color, size }) => {
-          const name = (() => {
-            switch (route.name) {
-              case 'home':
-                return 'home-outline';
-              case 'loans':
-                return 'briefcase-outline';
-              case 'more':
-                return 'menu-outline';
-              case 'profile':
-                return 'person-outline';
-              default:
-                return 'ellipse-outline';
-            }
-          })();
+    <View className="flex-1">
+      <Tabs
+        screenOptions={({ route }) => ({
+          headerShown: false,
+          tabBarActiveTintColor: '#7C3AED',
+          tabBarInactiveTintColor: '#9CA3AF',
+          tabBarIcon: ({ color, size }) => {
+            const name = (() => {
+              switch (route.name) {
+                case 'home':
+                  return 'home-outline';
+                case 'loans':
+                  return 'briefcase-outline';
+                case 'more':
+                  return 'menu-outline';
+                case 'profile':
+                  return 'person-outline';
+                default:
+                  return 'ellipse-outline';
+              }
+            })();
 
-          return <Ionicons name={name as any} size={size} color={color} />;
-        },
-      })}
-    >
-      <Tabs.Screen name="index" options={{ href: null }} />
-      <Tabs.Screen name="home" options={{ title: 'Home' }} />
-      <Tabs.Screen name="loans" options={{ title: 'Loans' }} />
-      <Tabs.Screen name="more" options={{ title: 'More' }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
-      <Tabs.Screen name="about" options={{ href: null }} />
-      <Tabs.Screen name="placeholder" options={{ href: null }} />
-      <Tabs.Screen name="faqs" options={{ href: null }} />
-      <Tabs.Screen name="loan-details" options={{ href: null }} />
-      <Tabs.Screen name="request-loan" options={{ href: null }} />
-      <Tabs.Screen name="quick-personal-loan" options={{ href: null }} />
-      <Tabs.Screen name="request-personal-loan" options={{ href: null }} />
-      <Tabs.Screen name="review-confirm-loan" options={{ href: null }} />
-      <Tabs.Screen name="loan-processing" options={{ href: null }} />
-      <Tabs.Screen name="personal-information" options={{ href: null }} />
-      <Tabs.Screen name="security-settings" options={{ href: null }} />
-      <Tabs.Screen name="mobile-money" options={{ href: null }} />
-      <Tabs.Screen name="change-password" options={{ href: null }} />
-      <Tabs.Screen name="change-pin" options={{ href: null }} />
-      <Tabs.Screen name="confirm-change-pin" options={{ href: null }} />
-      <Tabs.Screen name="help-support" options={{ href: null }} />
-      <Tabs.Screen name="repay-loan" options={{ href: null }} />
-      <Tabs.Screen name="payment-history" options={{ href: null }} />
-      <Tabs.Screen name="terms-privacy" options={{ href: null }} />
-      <Tabs.Screen name="notifications" options={{ href: null }} />
-    </Tabs>
+            return <Ionicons name={name as any} size={size} color={color} />;
+          },
+        })}
+      >
+        <Tabs.Screen name="index" options={{ href: null }} />
+        <Tabs.Screen name="home" options={{ title: 'Home' }} />
+        <Tabs.Screen name="loans" options={{ title: 'Loans' }} />
+        <Tabs.Screen name="more" options={{ title: 'More' }} />
+        <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+        <Tabs.Screen name="about" options={{ href: null }} />
+        <Tabs.Screen name="placeholder" options={{ href: null }} />
+        <Tabs.Screen name="faqs" options={{ href: null }} />
+        <Tabs.Screen name="kyc" options={{ href: null }} />
+        <Tabs.Screen name="loan-details" options={{ href: null }} />
+        <Tabs.Screen name="request-loan" options={{ href: null }} />
+        <Tabs.Screen name="quick-personal-loan" options={{ href: null }} />
+        <Tabs.Screen name="request-personal-loan" options={{ href: null }} />
+        <Tabs.Screen name="review-confirm-loan" options={{ href: null }} />
+        <Tabs.Screen name="loan-processing" options={{ href: null }} />
+        <Tabs.Screen name="personal-information" options={{ href: null }} />
+        <Tabs.Screen name="security-settings" options={{ href: null }} />
+        <Tabs.Screen name="mobile-money" options={{ href: null }} />
+        <Tabs.Screen name="change-password" options={{ href: null }} />
+        <Tabs.Screen name="change-pin" options={{ href: null }} />
+        <Tabs.Screen name="confirm-change-pin" options={{ href: null }} />
+        <Tabs.Screen name="help-support" options={{ href: null }} />
+        <Tabs.Screen name="repay-loan" options={{ href: null }} />
+        <Tabs.Screen name="payment-history" options={{ href: null }} />
+        <Tabs.Screen name="terms-privacy" options={{ href: null }} />
+        <Tabs.Screen name="notifications" options={{ href: null }} />
+      </Tabs>
+
+      {__DEV__ ? (
+        <View className="absolute bottom-2 left-2 right-2 rounded-xl bg-black/70 p-3" pointerEvents="none">
+          {debugLines.map((line, idx) => (
+            <Text key={String(idx)} className="text-[10px] text-white">
+              {line}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -237,6 +311,7 @@ function FallbackTabs() {
       <Tabs.Screen name="about" options={{ href: null }} />
       <Tabs.Screen name="placeholder" options={{ href: null }} />
       <Tabs.Screen name="faqs" options={{ href: null }} />
+      <Tabs.Screen name="kyc" options={{ href: null }} />
       <Tabs.Screen name="loan-details" options={{ href: null }} />
       <Tabs.Screen name="request-loan" options={{ href: null }} />
       <Tabs.Screen name="quick-personal-loan" options={{ href: null }} />

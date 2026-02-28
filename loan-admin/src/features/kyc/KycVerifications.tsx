@@ -16,6 +16,7 @@ type AdminKyc = {
   idType: string;
   idNumber: string;
   idImageUrl: string;
+  idBackImageUrl?: string | null;
   selfieUrl: string;
   verificationStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | string;
   createdAt: string;

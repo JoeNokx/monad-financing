@@ -12,6 +12,7 @@ type ApiRequestOptions = {
   path: string;
   body?: unknown;
   token?: string | null;
+  headers?: Record<string, string>;
 };
 
 export function createApiClient(options: ApiClientOptions = {}) {
@@ -26,13 +27,20 @@ export function createApiClient(options: ApiClientOptions = {}) {
 
     let res: Response;
     try {
+      const isFormData =
+        typeof FormData !== 'undefined' &&
+        input.body !== undefined &&
+        input.body !== null &&
+        input.body instanceof FormData;
+
       res = await fetch(requestUrl, {
         method: input.method ?? 'GET',
         headers: {
-          'Content-Type': 'application/json',
+          ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(input.headers ?? {}),
         },
-        body: input.body === undefined ? undefined : JSON.stringify(input.body),
+        body: input.body === undefined ? undefined : isFormData ? (input.body as any) : JSON.stringify(input.body),
         signal: controller.signal,
       });
     } catch (e) {
@@ -48,10 +56,31 @@ export function createApiClient(options: ApiClientOptions = {}) {
     }
 
     const text = await res.text();
-    const data = text ? (JSON.parse(text) as unknown) : null;
+    const contentType = res.headers.get('content-type') ?? '';
+    const trimmed = text.trim();
+
+    let data: unknown = null;
+    const shouldTryJson =
+      trimmed.length > 0 &&
+      (contentType.toLowerCase().includes('application/json') || trimmed.startsWith('{') || trimmed.startsWith('['));
+
+    if (shouldTryJson) {
+      try {
+        data = JSON.parse(trimmed) as unknown;
+      } catch {
+        data = text;
+      }
+    } else {
+      data = trimmed.length > 0 ? text : null;
+    }
 
     if (!res.ok) {
-      const message = typeof data === 'object' && data && 'message' in (data as any) ? String((data as any).message) : `Request failed (${res.status})`;
+      const message =
+        typeof data === 'object' && data && 'message' in (data as any)
+          ? String((data as any).message)
+          : typeof data === 'string' && data.trim().length > 0
+            ? data.trim()
+            : `Request failed (${res.status})`;
       throw new Error(message);
     }
 

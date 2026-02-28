@@ -29,9 +29,5 @@ export default function SetupIndexScreen() {
     router.replace(next);
   }, [appData, router]);
 
-  if (!appData) {
-    return <AppSkeleton />;
-  }
-
-  return null;
+  return <AppSkeleton />;
 }

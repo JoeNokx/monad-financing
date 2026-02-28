@@ -16,9 +16,16 @@ export const updateSystemSettingsSchema = z.object({
       businessDefaultTotalInstallments: z.number().int().positive().nullable().optional(),
 
       personalMinLoanAmount: z.number().positive().nullable().optional(),
+      personalMaxLoanAmount: z.number().positive().nullable().optional(),
       personalDurationOptionsDays: z.array(z.number().int().positive()).min(1).nullable().optional(),
       personalInterestRatePercent: z.number().nonnegative().nullable().optional(),
       personalServiceChargePercent: z.number().nonnegative().nullable().optional(),
+
+      businessMinLoanAmount: z.number().nonnegative().nullable().optional(),
+      businessMaxLoanAmount: z.number().positive().nullable().optional(),
+      businessDurationOptionsDays: z.array(z.number().int().positive()).nullable().optional(),
+      businessInterestRatePercent: z.number().nonnegative().nullable().optional(),
+      businessServiceChargePercent: z.number().nonnegative().nullable().optional(),
     })
     .strict(),
 });

@@ -20,6 +20,12 @@ function kycTitle(status: string) {
   return 'Verification in Progress';
 }
 
+function kycSubtitle(status: string) {
+  if (status === 'APPROVED') return 'Your account is verified.';
+  if (status === 'REJECTED') return 'Your submission was rejected. Please resubmit clear images.';
+  return 'We’re reviewing your documents (24-48 hours)';
+}
+
 function MenuItem(props: { icon: any; color: string; title: string; onPress?: () => void; danger?: boolean }) {
   return (
     <Pressable onPress={props.onPress} className="flex-row items-center justify-between rounded-2xl border border-gray-100 bg-white px-4 py-4">
@@ -91,7 +97,7 @@ export default function ProfileScreen() {
 
       <View className="h-4" />
 
-      <View className="rounded-2xl border border-yellow-200 bg-yellow-50 p-5">
+      <Pressable onPress={() => router.push('/(app)/kyc')} accessibilityRole="button" className="rounded-2xl border border-yellow-200 bg-yellow-50 p-5">
         <View className="flex-row items-center gap-3">
           <View className="h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
             <Ionicons name="shield-checkmark" size={22} color="#B45309" />
@@ -101,13 +107,18 @@ export default function ProfileScreen() {
             <View className="h-1" />
             <View className="flex-row items-center gap-2">
               <Ionicons name="time" size={14} color="#B45309" />
-              <Text className="font-semibold text-amber-700">{kyc ? kycTitle(kyc.status) : ''}</Text>
+              <Text className="font-semibold text-amber-700">
+                {kyc && kyc.hasSubmission ? kycTitle(kyc.status) : 'Upload your KYC and get huge loans'}
+              </Text>
             </View>
             <View className="h-1" />
-            <Text className="text-gray-600">We’re reviewing your documents (24-48 hours)</Text>
+            <Text className="text-gray-600">
+              {kyc && kyc.hasSubmission ? kycSubtitle(kyc.status) : 'Submit your ID and selfie to unlock higher loan limits.'}
+            </Text>
           </View>
+          <Ionicons name="chevron-forward" size={20} color="#B45309" />
         </View>
-      </View>
+      </Pressable>
 
       <View className="h-5" />
 

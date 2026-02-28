@@ -10,18 +10,27 @@ import { AuthNavigator } from '../../navigation/AuthNavigator';
 export default function AuthLayout() {
   const router = useRouter();
   const lastTargetRef = useRef<string | null>(null);
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, sessionId } = useAuth();
   const { hydrated, onboardingComplete, hasPin, locked } = useSecurity();
+
+  const stableSessionIdRef = useRef<string | null>(null);
+
+  if (isLoaded) {
+    if (sessionId) stableSessionIdRef.current = sessionId;
+    else if (!isSignedIn) stableSessionIdRef.current = null;
+  }
+
+  const isAuthed = Boolean(stableSessionIdRef.current) || isSignedIn;
 
   if (!hydrated || !isLoaded) return <AppSkeleton />;
 
   const target = (() => {
     if (!env.clerkPublishableKey) return '/(app)';
     if (!onboardingComplete) return '/onboarding';
-    if (!isSignedIn) return null;
+    if (!isAuthed) return null;
     if (!hasPin) return '/(auth)/create-pin';
     if (locked) return '/(auth)/pin-login';
-    return '/(app)/home';
+    return '/(app)';
   })();
 
   useEffect(() => {
@@ -30,10 +39,6 @@ export default function AuthLayout() {
     lastTargetRef.current = target;
     router.replace(target as any);
   }, [router, target]);
-
-  if (target && !target.startsWith('/(auth)/')) {
-    return <AppSkeleton />;
-  }
 
   return <AuthNavigator />;
 }
